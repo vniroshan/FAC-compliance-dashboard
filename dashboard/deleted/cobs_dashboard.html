@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>COBS NLP - Regulatory Intelligence Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #070b14; --surface: #0d1525; --surface2: #0a1020;
+  --border: #1e2d4a; --border2: #263552;
+  --accent: #2563ff; --accent2: #00c9a7; --accent3: #f59e0b;
+  --purple: #a78bfa; --danger: #ef4444;
+  --text: #e2e8f0; --text2: #94a3b8; --muted: #64748b;
+  --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: linear-gradient(rgba(37,99,255,0.025) 1px,transparent 1px), linear-gradient(90deg,rgba(37,99,255,0.025) 1px,transparent 1px);
+  background-size: 48px 48px;
+}
+/* HEADER */
+header {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(7,11,20,0.94); backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px; height: 54px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-badge { background: var(--accent); color: #fff; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 3px 8px; letter-spacing: .06em; clip-path: polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px)); }
+.logo-text { font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+.logo-sub { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: .12em; margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.status-pill { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--accent2); background: rgba(0,201,167,.07); border: 1px solid rgba(0,201,167,.18); padding: 4px 10px; }
+.status-dot { width: 6px; height: 6px; background: var(--accent2); border-radius: 50%; animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+.nav-tabs { display: flex; }
+.nav-tab { background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 14px; height: 54px; border-bottom: 2px solid transparent; transition: color .15s,border-color .15s; letter-spacing: .01em; }
+.nav-tab:hover { color: var(--text2); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* LAYOUT */
+.app { position: relative; z-index: 1; }
+.container { max-width: 1440px; margin: 0 auto; padding: 24px 28px; }
+.view { display: none; }
+.view.active { display: block; animation: fadeup .25s ease; }
+@keyframes fadeup { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+/* SECTION LABEL */
+.slabel { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+.slabel::after { content:''; flex:1; height:1px; background:var(--border); }
+/* METRICS */
+.metrics-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+.mc { background: var(--surface); border: 1px solid var(--border); padding: 18px 20px; position: relative; overflow: hidden; animation: rise .4s ease both; cursor: default; transition: border-color .2s; }
+.mc:hover { border-color: var(--border2); }
+.mc::after { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--stripe,var(--accent)); }
+.mc:nth-child(1){--stripe:var(--accent);animation-delay:0s} .mc:nth-child(2){--stripe:var(--accent2);animation-delay:.05s} .mc:nth-child(3){--stripe:var(--accent3);animation-delay:.1s} .mc:nth-child(4){--stripe:var(--purple);animation-delay:.15s}
+@keyframes rise { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.mc-lbl { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.14em; text-transform:uppercase; margin-bottom:10px; }
+.mc-val { font-family:var(--mono); font-size:30px; font-weight:600; color:var(--stripe,var(--accent)); line-height:1; }
+.mc-val span { font-size:16px; color:var(--muted); }
+.mc-sub { font-size:11px; color:var(--muted); margin-top:7px; }
+.delta { color:var(--accent2); font-family:var(--mono); font-size:10px; }
+/* PANEL */
+.panel { background:var(--surface); border:1px solid var(--border); padding:20px; animation:rise .4s ease both; }
+.ph { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.pt { font-size:12px; font-weight:600; letter-spacing:.02em; display:flex; align-items:center; gap:7px; }
+.ptag { font-family:var(--mono); font-size:9px; color:var(--muted); border:1px solid var(--border); padding:2px 7px; letter-spacing:.06em; }
+.dot { width:7px; height:7px; flex-shrink:0; }
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.g2a{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-bottom:16px}
+.g2b{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-bottom:16px}
+.mb16{margin-bottom:16px}
+/* BAR CHART */
+.bc { display:flex; flex-direction:column; gap:11px; }
+.br { display:flex; flex-direction:column; gap:4px; }
+.bm { display:flex; justify-content:space-between; align-items:center; }
+.bn { font-size:11px; color:var(--text2); }
+.bv { font-family:var(--mono); font-size:11px; color:var(--muted); }
+.bt { height:5px; background:var(--border); overflow:hidden; }
+.bf { height:100%; background:var(--fc,var(--accent)); transform-origin:left; animation:grow 1s ease both; animation-delay:var(--d,0s); }
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* TABLE */
+.ctable { width:100%; border-collapse:collapse; }
+.ctable th { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; text-align:left; padding:7px 11px; border-bottom:1px solid var(--border); }
+.ctable td { padding:9px 11px; border-bottom:1px solid rgba(30,45,74,.5); font-size:12px; }
+.ctable tr:last-child td { border-bottom:none; }
+.ctable tr.brow td { background:rgba(37,99,255,.04); }
+.mn2 { font-weight:500; } .mt2 { font-family:var(--mono); font-size:9px; color:var(--muted); }
+.f1b { display:inline-block; font-family:var(--mono); font-size:11px; font-weight:600; padding:2px 8px; background:rgba(37,99,255,.1); color:var(--accent); border:1px solid rgba(37,99,255,.25); }
+.f1b.best { background:rgba(0,201,167,.1); color:var(--accent2); border-color:rgba(0,201,167,.25); }
+/* DONUT */
+.dw { display:flex; flex-direction:column; align-items:center; gap:16px; }
+.dl { display:flex; flex-direction:column; gap:7px; width:100%; }
+.li { display:flex; align-items:center; gap:7px; }
+.ld { width:7px; height:7px; flex-shrink:0; }
+.ln { font-size:11px; flex:1; }
+.lc { font-family:var(--mono); font-size:10px; color:var(--muted); }
+.lp { font-family:var(--mono); font-size:10px; min-width:34px; text-align:right; }
+@keyframes dash{from{stroke-dasharray:0 357.8}}
+/* EXTRACTION */
+.elist { display:flex; flex-direction:column; gap:8px; }
+.ei { background:var(--bg); border:1px solid var(--border); padding:11px 13px; display:flex; align-items:center; gap:10px; animation:rise .4s ease both; }
+.esrc,.etgt { font-family:var(--mono); font-size:11px; font-weight:600; }
+.esrc{color:var(--accent)} .etgt{color:var(--accent2)}
+.earr { font-family:var(--mono); font-size:9px; color:var(--muted); display:flex; align-items:center; gap:4px; flex:1; white-space:nowrap; }
+.earr::before,.earr::after { content:''; flex:1; height:1px; background:var(--border); display:inline-block; vertical-align:middle; }
+.rb { font-family:var(--mono); font-size:9px; font-weight:600; padding:2px 7px; letter-spacing:.04em; }
+.rb.CITES{background:rgba(37,99,255,.1);color:var(--accent);border:1px solid rgba(37,99,255,.2)}
+.rb.AMENDS{background:rgba(245,158,11,.1);color:var(--accent3);border:1px solid rgba(245,158,11,.2)}
+.econf { font-family:var(--mono); font-size:10px; color:var(--muted); margin-left:auto; }
+/* NETWORK */
+.nw { height:210px; } svg.fsv{width:100%;height:100%}
+/* FOOTER */
+footer { position:relative; z-index:1; border-top:1px solid var(--border); padding:14px 28px; display:flex; justify-content:space-between; align-items:center; }
+.fl { font-family:var(--mono); font-size:10px; color:var(--muted); }
+.flinks { display:flex; gap:14px; }
+.fa { font-family:var(--mono); font-size:10px; color:var(--muted); text-decoration:none; transition:color .15s; }
+.fa:hover{color:var(--accent)}
+
+/* ═══════════════════════
+   SIMILARITY SEARCH
+═══════════════════════ */
+.search-panel { background:var(--surface); border:1px solid var(--border); padding:24px; margin-bottom:16px; animation:rise .4s ease; }
+.spt { font-size:20px; font-weight:600; letter-spacing:-.02em; margin-bottom:4px; }
+.sps { font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:20px; }
+.siw { display:flex; gap:10px; align-items:flex-start; }
+.sta { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:14px 16px; resize:none; outline:none; height:112px; line-height:1.65; transition:border-color .15s; }
+.sta:focus{border-color:var(--accent)} .sta::placeholder{color:var(--muted)}
+.sside { display:flex; flex-direction:column; gap:8px; }
+.sbtn { background:var(--accent); color:#fff; border:none; cursor:pointer; font-family:var(--mono); font-size:11px; font-weight:600; padding:11px 18px; letter-spacing:.06em; text-transform:uppercase; transition:background .15s,transform .1s; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.sbtn:hover{background:#1d4ed8} .sbtn:active{transform:scale(.97)}
+.sbtn .spin{width:11px;height:11px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:rot .6s linear infinite;display:none}
+.sbtn.loading .spin{display:block} .sbtn.loading .stxt{opacity:.6}
+@keyframes rot{to{transform:rotate(360deg)}}
+.tks { background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:11px; padding:8px 10px; outline:none; cursor:pointer; width:100%; }
+.srow { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }
+.ssb { background:none; border:1px solid var(--border); color:var(--muted); font-family:var(--mono); font-size:10px; padding:4px 10px; cursor:pointer; letter-spacing:.05em; transition:all .15s; }
+.ssb:hover{color:var(--accent2);border-color:var(--accent2)}
+/* RESULTS */
+.rarea{display:none}
+.rarea.visible{display:block;animation:fadeup .3s ease}
+.rhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.rcnt{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.rcnt strong{color:var(--accent2)}
+.stog{display:flex;gap:4px}
+.stbtn{background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:3px 9px;cursor:pointer;transition:all .15s}
+.stbtn.active{color:var(--accent);border-color:var(--accent);background:rgba(37,99,255,.08)}
+/* RESULT CARD */
+.rcard{background:var(--bg);border:1px solid var(--border);margin-bottom:10px;overflow:hidden;transition:border-color .2s;animation:rise .35s ease both}
+.rcard:hover{border-color:var(--border2)}
+.rch{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;background:rgba(13,21,37,.6);user-select:none}
+.rnk{font-family:var(--mono);font-size:10px;font-weight:600;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,255,.12);color:var(--accent);border:1px solid rgba(37,99,255,.25);flex-shrink:0}
+.rcard:first-child .rnk{background:rgba(0,201,167,.12);color:var(--accent2);border-color:rgba(0,201,167,.3)}
+.rref{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)}
+.rtbadge{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 8px;flex-shrink:0}
+.rtbadge.R{background:rgba(37,99,255,.12);color:var(--accent);border:1px solid rgba(37,99,255,.25)}
+.rtbadge.G{background:rgba(0,201,167,.12);color:var(--accent2);border:1px solid rgba(0,201,167,.25)}
+.rtbadge.E{background:rgba(245,158,11,.12);color:var(--accent3);border:1px solid rgba(245,158,11,.25)}
+.rtbadge.D{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.25)}
+.rtitle{flex:1;font-size:12px;color:var(--text2)}
+.sbw{display:flex;align-items:center;gap:8px;min-width:130px}
+.sbt{flex:1;height:4px;background:var(--border);overflow:hidden}
+.sbf{height:100%;transition:width .9s cubic-bezier(.23,1,.32,1)}
+.ssc{font-family:var(--mono);font-size:11px;font-weight:600;min-width:36px;text-align:right}
+.exp{color:var(--muted);font-size:16px;margin-left:4px;transition:transform .2s}
+.rcard.open .exp{transform:rotate(180deg)}
+/* CARD BODY */
+.rcb{display:none;padding:16px;border-top:1px solid var(--border)}
+.rcard.open .rcb{display:block;animation:fadeup .2s ease}
+.evb{margin-bottom:16px}
+.elvl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.elvl::after{content:'';flex:1;height:1px;background:var(--border)}
+.evtxt{font-size:12px;color:var(--text2);line-height:1.7;background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:var(--mono)}
+.evtxt mark{background:rgba(245,158,11,.2);color:var(--accent3);padding:0 2px;border-radius:2px}
+.citsec{margin-bottom:14px}
+.citgrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cchip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;padding:4px 10px;background:rgba(245,158,11,.07);color:var(--accent3);border:1px solid rgba(245,158,11,.2);cursor:pointer;transition:all .15s}
+.cchip:hover{background:rgba(245,158,11,.14);color:#fbbf24}
+.cchip .ct{font-size:9px;padding:1px 5px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.25)}
+.cchip .rl{color:var(--muted);font-size:9px}
+.mrrow{display:flex;gap:8px;flex-wrap:wrap}
+.rchip{font-family:var(--mono);font-size:10px;padding:3px 9px;background:rgba(37,99,255,.07);color:var(--accent);border:1px solid rgba(37,99,255,.18)}
+.cconf{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.ci{display:flex;flex-direction:column;gap:3px;flex:1}
+.cin{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.civ{font-family:var(--mono);font-size:13px;font-weight:600}
+
+/* ═══════════════════════
+   CLASSIFIER
+═══════════════════════ */
+.tinput{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:13px;resize:none;outline:none;height:110px;line-height:1.65;transition:border-color .15s}
+.tinput:focus{border-color:var(--accent)} .tinput::placeholder{color:var(--muted)}
+.cbtn{background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;padding:10px 18px;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px;transition:background .15s,transform .1s;align-self:flex-start;margin-top:10px}
+.cbtn:hover{background:#1d4ed8} .cbtn:active{transform:scale(.97)}
+.cbtn .sp2{width:11px;height:11px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:rot .6s linear infinite;display:none}
+.cbtn.loading .sp2{display:block} .cbtn.loading .cl{opacity:.6}
+.rbox{background:var(--bg);border:1px solid var(--border);padding:16px;margin-top:12px;display:none}
+.rbox.visible{display:block;animation:fadeup .3s ease}
+.rtlbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+.rcl{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.rl2{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.rsfx{font-family:var(--mono);font-size:13px;font-weight:600;padding:3px 10px;background:rgba(37,99,255,.12);color:var(--accent);border:1px solid rgba(37,99,255,.25)}
+.rsfx.G{background:rgba(0,201,167,.12);color:var(--accent2);border-color:rgba(0,201,167,.3)}
+.rsfx.E{background:rgba(245,158,11,.12);color:var(--accent3);border-color:rgba(245,158,11,.3)}
+.rsfx.D{background:rgba(167,139,250,.12);color:var(--purple);border-color:rgba(167,139,250,.3)}
+.cbr{display:flex;flex-direction:column;gap:5px}
+.cbl{font-family:var(--mono);font-size:9px;color:var(--muted);display:flex;justify-content:space-between}
+.cbt{height:4px;background:var(--border);overflow:hidden}
+.cbf{height:100%;background:var(--accent);transition:width .8s cubic-bezier(.23,1,.32,1)}
+
+@media(max-width:1100px){.metrics-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.g2,.g2a,.g2b{grid-template-columns:1fr}.metrics-row{grid-template-columns:repeat(2,1fr)}.container{padding:14px}header{padding:0 14px}.nav-tabs{display:none}.siw{flex-direction:column}.sside{flex-direction:row;flex-wrap:wrap}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-badge">FCA</div>
+    <div><div class="logo-text">COBS·NLP</div><div class="logo-sub">REGULATORY INTELLIGENCE</div></div>
+  </div>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" onclick="sw('overview',this)">Overview</button>
+    <button class="nav-tab" onclick="sw('search',this)">🔍 Similarity Search</button>
+    <button class="nav-tab" onclick="sw('classifier',this)">Classifier</button>
+    <button class="nav-tab" onclick="sw('models',this)">Models</button>
+  </nav>
+  <div class="header-right">
+    <div class="status-pill" id="apiStatusPill">
+      <div class="status-dot" id="apiStatusDot" style="background:var(--muted)"></div>
+      <span id="apiStatusText">Connecting…</span>
+    </div>
+  </div>
+</header>
+
+<div class="app"><div class="container">
+
+<!-- OVERVIEW -->
+<div class="view active" id="view-overview">
+  <div class="slabel">system performance overview</div>
+  <div class="metrics-row">
+    <div class="mc"><div class="mc-lbl">Classification Accuracy</div><div class="mc-val">95.0<span>%</span></div><div class="mc-sub">Legal-BERT &nbsp;<span class="delta">+9.8pp vs baseline</span></div></div>
+    <div class="mc"><div class="mc-lbl">Citation Precision</div><div class="mc-val">88.3<span>%</span></div><div class="mc-sub">Hybrid pipeline &nbsp;<span class="delta">+9.4pp vs ML-only</span></div></div>
+    <div class="mc"><div class="mc-lbl">Citation Recall</div><div class="mc-val">79.1<span>%</span></div><div class="mc-sub">Hybrid pipeline &nbsp;<span class="delta">+20.7pp vs rule-only</span></div></div>
+    <div class="mc"><div class="mc-lbl">Corpus Size</div><div class="mc-val" style="color:var(--purple)">802</div><div class="mc-sub">COBS provisions &nbsp;<span class="delta" style="color:var(--purple)">3 types (R, G, E)</span></div></div>
+  </div>
+  <div class="g2a">
+    <div class="panel">
+      <div class="ph"><div class="pt"><div class="dot" style="background:var(--accent3)"></div>Per-Class F1 · Legal-BERT</div><div class="ptag">BEST MODEL</div></div>
+      <div class="bc" style="margin-bottom:18px">
+        <div class="br"><div class="bm"><span class="bn">Rule (R) · n=76</span><span class="bv">97.4%</span></div><div class="bt"><div class="bf" style="width:97.4%;--fc:var(--accent);--d:.1s"></div></div></div>
+        <div class="br"><div class="bm"><span class="bn">Guidance (G) · n=43</span><span class="bv">93.2%</span></div><div class="bt"><div class="bf" style="width:93.2%;--fc:var(--accent2);--d:.2s"></div></div></div>
+        <div class="br"><div class="bm"><span class="bn">Evidential (E) · n=2</span><span class="bv">0.0%</span></div><div class="bt"><div class="bf" style="width:2%;--fc:var(--accent3);--d:.3s"></div></div></div>
+      </div>
+      <div style="padding-top:14px;border-top:1px solid var(--border)">
+        <div class="pt" style="margin-bottom:11px"><div class="dot" style="background:var(--accent2)"></div>Extraction Pipeline</div>
+        <div class="bc">
+          <div class="br"><div class="bm"><span class="bn">Rule-Based Precision</span><span class="bv">96.2%</span></div><div class="bt"><div class="bf" style="width:96.2%;--fc:var(--accent);--d:.5s"></div></div></div>
+          <div class="br"><div class="bm"><span class="bn">ML-Only Recall</span><span class="bv">81.2%</span></div><div class="bt"><div class="bf" style="width:81.2%;--fc:var(--accent2);--d:.6s"></div></div></div>
+          <div class="br"><div class="bm"><span class="bn">Hybrid F1</span><span class="bv">83.5%</span></div><div class="bt"><div class="bf" style="width:83.5%;--fc:var(--accent3);--d:.7s"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="pt"><div class="dot" style="background:var(--accent2)"></div>Corpus Distribution</div><div class="ptag">802 DOCS</div></div>
+      <div class="dw">
+        <svg width="140" height="140" viewBox="0 0 140 140" style="overflow:visible">
+          <circle cx="70" cy="70" r="52" fill="none" stroke="var(--border)" stroke-width="17"/>
+          <circle cx="70" cy="70" r="52" fill="none" stroke="var(--accent)" stroke-width="17" stroke-dasharray="205.7 326.73" stroke-dashoffset="81.7" style="animation:dash 1.2s ease both .3s"/>
+          <circle cx="70" cy="70" r="52" fill="none" stroke="var(--accent2)" stroke-width="17" stroke-dasharray="116.1 326.73" stroke-dashoffset="-124.1" style="animation:dash 1.2s ease both .4s"/>
+          <circle cx="70" cy="70" r="52" fill="none" stroke="var(--accent3)" stroke-width="17" stroke-dasharray="4.9 326.73" stroke-dashoffset="-240.2" style="animation:dash 1.2s ease both .5s"/>
+          <text x="70" y="66" text-anchor="middle" fill="var(--text)" font-family="IBM Plex Mono" font-size="19" font-weight="600">802</text>
+          <text x="70" y="80" text-anchor="middle" fill="var(--muted)" font-family="IBM Plex Mono" font-size="9">PROVISIONS</text>
+        </svg>
+        <div class="dl">
+          <div class="li"><div class="ld" style="background:var(--accent)"></div><div class="ln">Rule</div><div class="lc">505</div><div class="lp">63.0%</div></div>
+          <div class="li"><div class="ld" style="background:var(--accent2)"></div><div class="ln">Guidance</div><div class="lc">285</div><div class="lp">35.5%</div></div>
+          <div class="li"><div class="ld" style="background:var(--accent3)"></div><div class="ln">Evidential Provision</div><div class="lc">12</div><div class="lp">1.5%</div></div>
+          <div class="li"><div class="ld" style="background:var(--purple)"></div><div class="ln">Direction</div><div class="lc">0</div><div class="lp">0%</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel"><div class="ph"><div class="pt"><div class="dot" style="background:var(--accent2)"></div>Citation Network Sample</div><div class="ptag">REAL DATA</div></div><div class="nw"><svg class="fsv" id="networkSvg" viewBox="0 0 380 210"></svg></div></div>
+    <div class="panel"><div class="ph"><div class="pt"><div class="dot" style="background:var(--accent3)"></div>Recent Extractions</div><div class="ptag">HYBRID PIPELINE</div></div><div class="elist" id="extList"></div></div>
+  </div>
+</div>
+
+<!-- SIMILARITY SEARCH  <- NEW -->
+<div class="view" id="view-search">
+  <div class="search-panel">
+    <div class="spt">Provision Similarity Search</div>
+    <div class="sps">Semantic similarity search over 802 COBS provisions · choose embedding model below</div>
+    <div class="siw">
+      <textarea class="sta" id="searchInput" placeholder="Describe a compliance scenario or paste regulatory text…&#10;e.g. &quot;A firm is recommending a structured product to a retail client with low risk tolerance…&quot;"></textarea>
+      <div class="sside">
+        <select class="tks" id="simModelSelect" style="margin-bottom:6px">
+          <option value="legal-bert">Legal-BERT [CLS] 768-dim</option>
+          <option value="sentence-transformer" selected>SentenceTransformer 384-dim</option>
+        </select>
+        <select class="tks" id="topkSelect">
+          <option value="3">Top 3 results</option>
+          <option value="5" selected>Top 5 results</option>
+          <option value="7">Top 7 results</option>
+          <option value="10">Top 10 results</option>
+        </select>
+        <button class="sbtn" id="searchBtn" onclick="runSearch()"><div class="spin"></div><span class="stxt">FIND SIMILAR</span></button>
+        <button class="sbtn" style="background:var(--surface);color:var(--muted);border:1px solid var(--border)" onclick="clearSearch()">CLEAR</button>
+      </div>
+    </div>
+    <div class="srow">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);align-self:center;margin-right:2px">SCENARIOS:</span>
+      <button class="ssb" onclick="loadScenario(0)">Suitability Assessment</button>
+      <button class="ssb" onclick="loadScenario(1)">Best Execution</button>
+      <button class="ssb" onclick="loadScenario(2)">Client Disclosure</button>
+      <button class="ssb" onclick="loadScenario(3)">Product Governance</button>
+      <button class="ssb" onclick="loadScenario(4)">Inducements &amp; Conflicts</button>
+    </div>
+  </div>
+
+  <div class="rarea" id="resultsArea">
+    <div class="rhead">
+      <div class="rcnt">Found <strong id="rcount">—</strong> relevant COBS provisions · sorted by similarity</div>
+      <div class="stog">
+        <button class="stbtn active" onclick="sortRes('sim',this)">Similarity</button>
+        <button class="stbtn" onclick="sortRes('type',this)">Type</button>
+        <button class="stbtn" onclick="sortRes('ref',this)">Reference</button>
+      </div>
+    </div>
+    <div id="searchModelInfo" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);background:rgba(100,120,157,0.08);border:1px solid rgba(100,120,157,0.18);border-radius:6px;padding:6px 12px;margin-bottom:10px;"></div>
+    <div id="resList"></div>
+  </div>
+</div>
+
+<!-- CLASSIFIER -->
+<div class="view" id="view-classifier">
+  <div class="slabel">document type classification · with evidence &amp; citation extraction</div>
+  <div class="g2a">
+    <div class="panel">
+      <div class="ph"><div class="pt"><div class="dot" style="background:var(--accent)"></div>Provision Classifier</div><div class="ptag">LEGAL-BERT</div></div>
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-right:2px">SAMPLES:</span>
+            <button class="ssb" onclick="loadClsSample('R')">Rule</button>
+            <button class="ssb" onclick="loadClsSample('G')">Guidance</button>
+            <button class="ssb" onclick="loadClsSample('E')">Evidential</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--muted)">MODEL:</span>
+            <select id="clsModelSelect" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:4px 8px;outline:none;cursor:pointer">
+              <option value="legal-bert" selected>Legal-BERT (fine-tuned)</option>
+              <option value="svm">SVM + TF-IDF (baseline)</option>
+            </select>
+          </div>
+        </div>
+        <textarea class="tinput" id="classifyInput" placeholder="Paste a COBS regulatory provision here…"></textarea>
+        <button class="cbtn" id="classifyBtn" onclick="runClassify()"><div class="sp2"></div><span class="cl">CLASSIFY &amp; EXTRACT</span></button>
+        <div class="rbox" id="resultBox">
+          <div class="rtlbl">Classification Result</div>
+          <div class="rcl"><div class="rl2" id="resultLabel">—</div><div class="rsfx" id="resultSuffix">R</div></div>
+          <div class="cbr"><div class="cbl"><span>Confidence</span><span id="confVal">—</span></div><div class="cbt"><div class="cbf" id="confFill" style="width:0%"></div></div></div>
+          <!-- Probability Distribution -->
+          <div id="cls-probs" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div class="elvl">Softmax Probability Distribution</div>
+            <div class="bc" style="margin-top:8px">
+              <div class="br"><div class="bm"><span class="bn" style="color:var(--accent)">Rule (R)</span><span class="bv" id="prob-r-val">0%</span></div><div class="bt"><div class="bf" id="prob-r-bar" style="width:0%;--fc:var(--accent);transition:width .8s cubic-bezier(.23,1,.32,1)"></div></div></div>
+              <div class="br"><div class="bm"><span class="bn" style="color:var(--accent2)">Guidance (G)</span><span class="bv" id="prob-g-val">0%</span></div><div class="bt"><div class="bf" id="prob-g-bar" style="width:0%;--fc:var(--accent2);transition:width .8s cubic-bezier(.23,1,.32,1)"></div></div></div>
+              <div class="br"><div class="bm"><span class="bn" style="color:var(--accent3)">Evidential (E)</span><span class="bv" id="prob-e-val">0%</span></div><div class="bt"><div class="bf" id="prob-e-bar" style="width:0%;--fc:var(--accent3);transition:width .8s cubic-bezier(.23,1,.32,1)"></div></div></div>
+            </div>
+          </div>
+          <!-- Evidence -->
+          <div id="cls-ev" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div class="elvl">Evidence Snippet · Classification signals highlighted</div>
+            <div class="evtxt" id="cls-ev-txt"></div>
+          </div>
+          <!-- Citations -->
+          <div id="citBox" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div class="elvl">Extracted Citations &amp; Relation Map</div>
+            <div class="citgrid" id="citTags"></div>
+            <div id="citRels" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8"></div>
+          </div>
+          <!-- Classification Signals -->
+          <div id="cls-sig" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <div class="elvl">Classification Signals</div>
+            <div class="mrrow" id="cls-sig-chips"></div>
+          </div>
+          <!-- Model metadata -->
+          <div id="cls-meta" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);gap:16px;flex-wrap:wrap">
+            <div><div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px">Model</div><div id="cls-model-used" style="font-family:var(--mono);font-size:11px;color:var(--accent2)">—</div></div>
+            <div><div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px">Inference</div><div id="cls-infer-ms" style="font-family:var(--mono);font-size:11px;color:var(--accent3)">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="pt"><div class="dot" style="background:var(--purple)"></div>How It Works</div></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="background:var(--bg);border:1px solid var(--border);padding:14px">
+          <div class="elvl" style="margin-bottom:8px">Provision Type Signals</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+            <div><span style="color:var(--accent);font-family:var(--mono)">Rule (R)</span> &nbsp;→&nbsp; <code style="background:rgba(37,99,255,.1);color:var(--accent);padding:1px 5px;font-family:var(--mono)">must</code> · binding obligation</div>
+            <div><span style="color:var(--accent2);font-family:var(--mono)">Guidance (G)</span> &nbsp;→&nbsp; <code style="background:rgba(0,201,167,.1);color:var(--accent2);padding:1px 5px;font-family:var(--mono)">should</code> · advisory</div>
+            <div><span style="color:var(--accent3);font-family:var(--mono)">Evidential (E)</span> &nbsp;→&nbsp; <code style="background:rgba(245,158,11,.1);color:var(--accent3);padding:1px 5px;font-family:var(--mono)">tending to show</code></div>
+            <div><span style="color:var(--purple);font-family:var(--mono)">Direction (D)</span> &nbsp;→&nbsp; FCA directive to named firm</div>
+          </div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);padding:14px">
+          <div class="elvl" style="margin-bottom:8px">Offline Approximation Pipeline</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--text2)">
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent);flex-shrink:0;margin-top:4px"></div><span>Feature extraction: 38 weighted linguistic patterns (modal verbs, deontic markers, evidential phrases)</span></div>
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent);flex-shrink:0;margin-top:4px"></div><span>COBS reference suffix prior (R/G/E suffix → class boost)</span></div>
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent2);flex-shrink:0;margin-top:4px"></div><span>Softmax normalisation (T=1.2) → probability distribution</span></div>
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent2);flex-shrink:0;margin-top:4px"></div><span>Regex citation extractor with context-aware relation classification</span></div>
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent3);flex-shrink:0;margin-top:4px"></div><span>Relation classifier: CITES / AMENDS (based on surrounding context)</span></div>
+          </div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);padding:14px">
+          <div class="elvl" style="margin-bottom:8px">Production Pipeline (Legal-BERT)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--text2)">
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent);flex-shrink:0;margin-top:4px"></div><span>WordPiece tokenisation (max 512 tokens)</span></div>
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent);flex-shrink:0;margin-top:4px"></div><span>[CLS] embedding (768-dim) → dropout p=0.1</span></div>
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent2);flex-shrink:0;margin-top:4px"></div><span>Linear 768→3 softmax · F1: R=97.4%, G=93.2%</span></div>
+            <div style="display:flex;gap:8px"><div style="width:6px;height:6px;background:var(--accent2);flex-shrink:0;margin-top:4px"></div><span>Accuracy: 95.0% on held-out test set (n=121)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODELS -->
+<div class="view" id="view-models">
+  <div class="slabel">model benchmarks · held-out test set</div>
+  <div class="g2 mb16">
+    <div class="panel">
+      <div class="ph"><div class="pt"><div class="dot" style="background:var(--purple)"></div>Classification Comparison</div><div class="ptag">TASK 1</div></div>
+      <table class="ctable">
+        <thead><tr><th>Model</th><th>Precision</th><th>Recall</th><th>F1</th><th>Accuracy</th></tr></thead>
+        <tbody>
+          <tr class="brow"><td><div class="mn2">SVM + TF-IDF ★</div><div class="mt2">BEST · BASELINE</div></td><td>87.6%</td><td>86.4%</td><td><span class="f1b best">86.9%</span></td><td>82.6%</td></tr>
+          <tr><td><div class="mn2">Random Forest</div><div class="mt2">BASELINE</div></td><td>87.8%</td><td>67.6%</td><td><span class="f1b">74.0%</span></td><td>81.0%</td></tr>
+          <tr><td><div class="mn2">Legal-BERT</div><div class="mt2">TRANSFORMER</div></td><td>62.8%</td><td>64.2%</td><td><span class="f1b">63.5%</span></td><td>95.0%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="pt"><div class="dot" style="background:var(--accent2)"></div>Extraction Ablation</div><div class="ptag">TASK 2</div></div>
+      <table class="ctable">
+        <thead><tr><th>Configuration</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead>
+        <tbody>
+          <tr><td><div class="mn2">Rule-Based Only</div></td><td>96.2%</td><td>58.4%</td><td><span class="f1b">72.7%</span></td></tr>
+          <tr><td><div class="mn2">ML Only</div></td><td>78.9%</td><td>81.2%</td><td><span class="f1b">80.0%</span></td></tr>
+          <tr class="brow"><td><div class="mn2">Hybrid Ensemble ★</div></td><td>88.3%</td><td>79.1%</td><td><span class="f1b best">83.5%</span></td></tr>
+          <tr><td><div class="mn2">No Confidence Override</div></td><td>85.1%</td><td>79.3%</td><td><span class="f1b">82.1%</span></td></tr>
+          <tr><td><div class="mn2">Random Init</div></td><td>61.4%</td><td>59.2%</td><td><span class="f1b">60.3%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div></div>
+
+<footer>
+  <div class="fl">MSc Computer Science · FCA COBS NLP Project · Pipeline Results</div>
+  <div class="flinks">
+    <a class="fa" href="#">GitHub</a><a class="fa" href="#">Dataset (CC-BY 4.0)</a>
+    <a class="fa" href="#">Dissertation</a><a class="fa" href="#">HuggingFace</a>
+  </div>
+</footer>
+
+<script>
+function simColor(s){ return s>=0.8?'var(--accent2)':s>=0.6?'var(--accent)':s>=0.4?'var(--accent3)':'var(--muted)'; }
+
+function hlEvidence(text, query) {
+  const words = query.toLowerCase().split(/\s+/).filter(w=>w.length>3).slice(0,10);
+  let r = text;
+  words.forEach(w=>{ r = r.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark>$1</mark>'); });
+  return r;
+}
+
+function matchReasons(q, prov) {
+  const r = [];
+  prov.kw.filter(k=>q.toLowerCase().includes(k.toLowerCase())).slice(0,3).forEach(k=>r.push(k));
+  if(prov.cits.length>0) r.push(`${prov.cits.length} citation(s)`);
+  if(['R','E'].includes(prov.type)) r.push('binding provision');
+  if(r.length===0) r.push('semantic similarity');
+  return r.slice(0,5);
+}
+
+/* ─── SCENARIOS ─── */
+const SCENARIOS = [
+  "A firm is recommending a structured product to a retail client with limited investment experience and low risk tolerance. The compliance team needs to understand the suitability assessment requirements and what client information must be collected before making the recommendation.",
+  "An investment firm is placing large client orders across multiple execution venues. The head of compliance needs to understand the best execution obligations, what execution factors must be considered, and how the execution policy should be maintained.",
+  "A firm is preparing pre-contractual disclosures for a new investment service targeted at retail clients. The compliance officer needs to know what information must be disclosed, in what format, and the required timing of those disclosures.",
+  "A firm is launching a new retail investment product. The product governance team needs to understand requirements for defining the target market, selecting appropriate distribution channels, and ensuring the product only reaches suitable clients.",
+  "A firm's execution desk pays third-party brokers for bundled research and execution services. The compliance officer needs to understand the rules on inducements, conflicts of interest, and whether the payment arrangement is permissible."
+];
+
+let curResults = [];
+
+/* API CONFIG — FastAPI backend running locally */
+const API_BASE = 'http://localhost:8000';
+let API_ONLINE = false;
+
+async function checkAPIHealth() {
+  const dot  = document.getElementById('apiStatusDot');
+  const text = document.getElementById('apiStatusText');
+  try {
+    const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
+    if (r.ok) {
+      const h = await r.json();
+      API_ONLINE = h.bert_loaded; // true only when Legal-BERT is ready
+      dot.style.background  = API_ONLINE ? 'var(--accent2)' : 'var(--accent3)';
+      text.textContent      = API_ONLINE ? 'Model API Online' : 'API — BERT loading…';
+      dot.style.animation   = API_ONLINE ? 'blink 2s ease-in-out infinite' : 'none';
+    } else { throw new Error('bad status'); }
+  } catch {
+    API_ONLINE = false;
+    dot.style.background = 'var(--danger)';
+    dot.style.animation  = 'none';
+    text.textContent     = 'API Offline — local fallback';
+  }
+  // recheck every 8 s
+  setTimeout(checkAPIHealth, 8000);
+}
+checkAPIHealth();
+
+function loadScenario(i){ document.getElementById('searchInput').value=SCENARIOS[i]; document.getElementById('resultsArea').classList.remove('visible'); }
+function clearSearch(){ document.getElementById('searchInput').value=''; document.getElementById('resultsArea').classList.remove('visible'); curResults=[]; }
+
+async function runSearch(){
+  const q = document.getElementById('searchInput').value.trim();
+  if(!q) return;
+  const btn = document.getElementById('searchBtn');
+  const k = parseInt(document.getElementById('topkSelect').value);
+  const simModel = document.getElementById('simModelSelect') ? document.getElementById('simModelSelect').value : 'sentence-transformer';
+  btn.classList.add('loading');
+
+  if (!API_ONLINE) {
+    btn.classList.remove('loading');
+    document.getElementById('searchModelInfo').textContent =
+      '⚠️ API offline — start the server: python -m uvicorn api.app:app --port 8000';
+    document.getElementById('searchModelInfo').style.display = 'block';
+    return;
+  }
+
+  /* ── Real model: POST /similarity ── */
+  try {
+    const res  = await fetch(`${API_BASE}/similarity`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ query: q, top_k: k, model: simModel }),
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    btn.classList.remove('loading');
+
+    // Map API results to renderResults format
+    curResults = data.results.map(r => ({
+      ref  : r.provision_ref,
+      type : r.type_code,
+      ch   : r.provision_ref.split(' ')[1]?.split('.')[0] || '?',
+      title: r.provision_ref,
+      text : r.text_snippet,
+      cits : [], rels: [], kw: [],
+      score: r.score,
+    }));
+
+    document.getElementById('searchModelInfo').textContent =
+      `◾ ${data.model_used} · ${data.inference_ms} ms`;
+    document.getElementById('searchModelInfo').style.display = 'block';
+
+    renderResults(q, curResults, 'sim');
+  } catch(e) {
+    console.warn('API similarity call failed:', e);
+    btn.classList.remove('loading');
+    document.getElementById('searchModelInfo').textContent =
+      '⚠️ API offline — start the server: python -m uvicorn api.app:app --port 8000';
+    document.getElementById('searchModelInfo').style.display = 'block';
+  }
+}
+
+function renderResults(q, results, sortBy){
+  let sorted = [...results];
+  if(sortBy==='type') sorted.sort((a,b)=>a.type.localeCompare(b.type));
+  if(sortBy==='ref') sorted.sort((a,b)=>a.ref.localeCompare(b.ref));
+
+  document.getElementById('rcount').textContent = sorted.length;
+  const typeLabel = {R:'Rule',G:'Guidance',E:'Evidential Provision',D:'Direction'};
+
+  document.getElementById('resList').innerHTML = sorted.map((p,i)=>{
+    const sc = p.score, col = simColor(sc), pct = Math.round(sc*100);
+    const evSnip = hlEvidence(p.text.slice(0,300)+(p.text.length>300?'…':''), q);
+    const reasons = matchReasons(q, p);
+    const citsHtml = p.cits.map(c=>{
+      const rel = p.rels.find(r=>r.t===c);
+      return `<div class="cchip" title="${c}"><span>${c}</span><span class="ct">${c.slice(-1)}</span><span class="rl">${rel?rel.r:'CITES'}</span></div>`;
+    }).join('');
+    const relMapHtml = p.rels.map(r=>
+      `<div><span style="color:var(--accent)">${r.s}</span><span style="color:var(--muted)"> → ${r.r} → </span><span style="color:var(--accent3)">${r.t}</span></div>`
+    ).join('');
+    const reasonHtml = reasons.map(r=>`<span class="rchip">${r}</span>`).join('');
+    return `
+    <div class="rcard" id="rc${i}" style="animation-delay:${i*.06}s">
+      <div class="rch" onclick="toggleCard(${i})">
+        <div class="rnk">${i+1}</div>
+        <div class="rref">${p.ref}</div>
+        <div class="rtbadge ${p.type}">${typeLabel[p.type]||p.type}</div>
+        <div class="rtitle">${p.title}</div>
+        <div class="sbw">
+          <div class="sbt"><div class="sbf" style="width:0%;--c:${col};background:${col}" data-w="${pct}%"></div></div>
+          <div class="ssc" style="color:${col}">${pct}%</div>
+        </div>
+        <div class="exp">▾</div>
+      </div>
+      <div class="rcb">
+        <div class="evb">
+          <div class="elvl">Evidence Snippet · matching terms highlighted</div>
+          <div class="evtxt">${evSnip}</div>
+        </div>
+        <div class="citsec">
+          <div class="elvl">Extracted Citations &amp; Relations</div>
+          <div class="citgrid">${citsHtml}</div>
+          <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8">${relMapHtml}</div>
+        </div>
+        <div>
+          <div class="elvl">Match Signals</div>
+          <div class="mrrow">${reasonHtml}</div>
+        </div>
+        <div class="cconf">
+          <div class="ci"><div class="cin">Similarity</div><div class="civ" style="color:${col}">${sc.toFixed(3)}</div></div>
+          <div class="ci"><div class="cin">Type</div><div class="civ" style="color:${p.type==='R'?'var(--accent)':p.type==='G'?'var(--accent2)':'var(--accent3)'}">${p.type}</div></div>
+          <div class="ci"><div class="cin">Chapter</div><div class="civ">COBS ${p.ch}</div></div>
+          <div class="ci"><div class="cin">Cross-refs</div><div class="civ">${p.cits.length}</div></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('resultsArea').classList.add('visible');
+  setTimeout(()=>{
+    document.querySelectorAll('.sbf[data-w]').forEach(el=>{
+      el.style.width = el.dataset.w;
+    });
+  }, 80);
+}
+
+function toggleCard(i){
+  const c=document.getElementById(`rc${i}`);
+  c.classList.toggle('open');
+}
+
+function sortRes(mode, btn){
+  document.querySelectorAll('.stbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(curResults.length>0) renderResults(document.getElementById('searchInput').value, curResults, mode);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CLASSIFIER — Rule-based approximation of Legal-BERT
+   Mimics the trained nlpaueb/legal-bert-base-uncased model
+   using weighted linguistic feature scoring + softmax
+   confidence normalisation. In production, this calls the
+   hosted model endpoint; here it runs offline.
+═══════════════════════════════════════════════════════════ */
+const CLS_SAMPLES={
+  R:"A firm must take reasonable steps to ensure that a personal recommendation, or a decision to trade, is suitable for its client. COBS 9A.2.1R applies and the firm must consider the investment objectives including the client's attitude to risk and the purpose of the investment, as required under COBS 9A.3.2R.",
+  G:"Where a firm is providing portfolio management services, it should consider whether it is appropriate to establish a standing arrangement to execute transactions outside a regulated market. The firm should have regard to COBS 11.2A.1G and best execution requirements.",
+  E:"Compliance with this rule may be relied upon as tending to show compliance with COBS 2.1.1R. A firm that departs from this provision must demonstrate to the FCA how it is nonetheless acting in the best interests of the client under COBS 2.1.1R."
+};
+
+function loadClsSample(t){ document.getElementById('classifyInput').value=CLS_SAMPLES[t]; document.getElementById('resultBox').classList.remove('visible'); }
+
+/* ── Feature extraction (mirrors TF-IDF + linguistic features fed to the model) ── */
+const RULE_PATTERNS = [
+  { re:/\bmust\b/gi,                     w:2.8,  name:'must (deontic)' },
+  { re:/\bmust not\b/gi,                  w:3.2,  name:'must not (prohibition)' },
+  { re:/\bis required to\b/gi,            w:2.5,  name:'is required to' },
+  { re:/\bshall\b/gi,                     w:2.2,  name:'shall (mandatory)' },
+  { re:/\bshall not\b/gi,                 w:2.6,  name:'shall not' },
+  { re:/\bis not permitted\b/gi,          w:2.4,  name:'not permitted' },
+  { re:/\ba firm must\b/gi,               w:1.8,  name:'a firm must' },
+  { re:/\bobligat/gi,                     w:1.5,  name:'obligation' },
+  { re:/\bbinding\b/gi,                   w:1.3,  name:'binding' },
+  { re:/\bprohibit/gi,                    w:1.6,  name:'prohibition' },
+  { re:/\bcontravention\b/gi,             w:1.4,  name:'contravention' },
+  { re:/\bin accordance with\b/gi,        w:1.0,  name:'in accordance with' },
+  { re:/\bensure that\b/gi,               w:1.2,  name:'ensure that' },
+  { re:/\bunless\b/gi,                    w:0.8,  name:'unless (exception)' },
+  { re:/\bsubject to\b/gi,                w:0.7,  name:'subject to' },
+];
+const GUIDANCE_PATTERNS = [
+  { re:/\bshould\b/gi,                    w:2.8,  name:'should (advisory)' },
+  { re:/\bshould not\b/gi,                w:2.5,  name:'should not' },
+  { re:/\bmay wish to\b/gi,               w:2.2,  name:'may wish to' },
+  { re:/\bshould consider\b/gi,           w:2.4,  name:'should consider' },
+  { re:/\bshould have regard\b/gi,        w:2.3,  name:'should have regard' },
+  { re:/\bwould expect\b/gi,              w:2.0,  name:'would expect' },
+  { re:/\bgood practice\b/gi,             w:1.8,  name:'good practice' },
+  { re:/\bmay also\b/gi,                  w:1.3,  name:'may also'},
+  { re:/\bfirms should\b/gi,              w:1.5,  name:'firms should' },
+  { re:/\bfor example\b/gi,               w:0.8,  name:'for example' },
+  { re:/\bhave regard to\b/gi,            w:1.4,  name:'have regard to' },
+  { re:/\bappropriate\b/gi,               w:0.9,  name:'appropriate' },
+  { re:/\bwhere a firm\b/gi,              w:0.7,  name:'where a firm' },
+  { re:/\bin particular\b/gi,             w:0.6,  name:'in particular' },
+];
+const EVIDENTIAL_PATTERNS = [
+  { re:/\btending to (show|establish|indicate)\b/gi, w:4.5, name:'tending to show/establish' },
+  { re:/\bmay be relied upon\b/gi,        w:4.2,  name:'may be relied upon' },
+  { re:/\btending to show compliance\b/gi,w:4.8,  name:'tending to show compliance' },
+  { re:/\bcontravention may be relied\b/gi,w:4.0, name:'contravention relied upon' },
+  { re:/\bdeparts from\b/gi,              w:3.5,  name:'departs from' },
+  { re:/\bevidential\b/gi,                w:3.0,  name:'evidential' },
+  { re:/\bcompliance with.*?rule\b/gi,     w:2.0,  name:'compliance with rule' },
+  { re:/\bpresumption\b/gi,               w:2.2,  name:'presumption' },
+  { re:/\bsafe harbour\b/gi,              w:2.5,  name:'safe harbour' },
+];
+
+/* Score one class: sum of (match_count × weight) for each pattern */
+function scoreClass(text, patterns) {
+  let total = 0;
+  const found = [];
+  patterns.forEach(p => {
+    const matches = text.match(p.re);
+    if (matches) {
+      total += matches.length * p.w;
+      found.push(p.name);
+    }
+  });
+  return { total, found };
+}
+
+/* Suffix-based prior: if ref ends in R/G/E, boost that class */
+function refSuffixPrior(text) {
+  const refs = text.match(/COBS\s+[\d]+\.[\d.]+([RGED])\b/g) || [];
+  const counts = { R:0, G:0, E:0 };
+  refs.forEach(r => {
+    const last = r.trim().slice(-1);
+    if (counts.hasOwnProperty(last)) counts[last]++;
+  });
+  return counts;
+}
+
+/* Softmax: convert raw logits to probabilities (temperature=1.2 for calibration) */
+function softmax(logits, temperature=1.2) {
+  const scaled = logits.map(l => l / temperature);
+  const maxL = Math.max(...scaled);
+  const exps = scaled.map(l => Math.exp(l - maxL));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sum);
+}
+
+/* Main classifier: returns { type, confidence, probs, signals } */
+function classifyProvision(text) {
+  const rScore = scoreClass(text, RULE_PATTERNS);
+  const gScore = scoreClass(text, GUIDANCE_PATTERNS);
+  const eScore = scoreClass(text, EVIDENTIAL_PATTERNS);
+
+  // Add suffix priors
+  const sp = refSuffixPrior(text);
+  const logits = [
+    rScore.total + sp.R * 1.5,   // Rule
+    gScore.total + sp.G * 1.2,   // Guidance
+    eScore.total + sp.E * 1.8    // Evidential
+  ];
+
+  // Prior bias: Rules are most common in COBS (63%)
+  logits[0] += 0.8;
+  logits[1] += 0.4;
+  logits[2] += 0.1;
+
+  // Word-count heuristic: very short texts tend to be Rules
+  const wc = text.split(/\s+/).length;
+  if (wc < 30) logits[0] += 0.5;
+
+  const probs = softmax(logits);
+  const labels = ['R', 'G', 'E'];
+  const maxIdx = probs.indexOf(Math.max(...probs));
+  const type = labels[maxIdx];
+
+  // Collect all signals that fired for the winning class
+  const allSignals = [
+    ...rScore.found.map(s => ({ signal: s, cls: 'R' })),
+    ...gScore.found.map(s => ({ signal: s, cls: 'G' })),
+    ...eScore.found.map(s => ({ signal: s, cls: 'E' }))
+  ];
+  const winningSignals = allSignals.filter(s => s.cls === type).map(s => s.signal);
+  const allDetected = allSignals.map(s => s.signal);
+
+  return {
+    type,
+    confidence: probs[maxIdx],
+    probs: { R: probs[0], G: probs[1], E: probs[2] },
+    signals: winningSignals.length > 0 ? winningSignals : ['class prior distribution'],
+    allSignals: allDetected
+  };
+}
+
+/* Enhanced citation extraction with relation classification */
+function extractCitations(text) {
+  const refs = [...new Set(text.match(/COBS\s+[\d]+\.([\dA-Z.]+)/g) || [])];
+  // Detect AMENDS vs CITES relations
+  const relations = [];
+  const amendPat = /amends?|substitut|replac|revok|delet|insert|omit/i;
+  refs.forEach(ref => {
+    // Check surrounding context for amend signals
+    const idx = text.indexOf(ref);
+    const ctx = text.substring(Math.max(0, idx - 80), Math.min(text.length, idx + ref.length + 80));
+    const relType = amendPat.test(ctx) ? 'AMENDS' : 'CITES';
+    relations.push({ target: ref, relation: relType });
+  });
+  return { refs, relations };
+}
+
+async function runClassify(){
+  const text = document.getElementById('classifyInput').value.trim();
+  if(!text) return;
+  const model = document.getElementById('clsModelSelect') ? document.getElementById('clsModelSelect').value : 'legal-bert';
+  const btn = document.getElementById('classifyBtn');
+  btn.classList.add('loading');
+  const typeLabels = { R:'Rule', G:'Guidance', E:'Evidential Provision' };
+
+  if(API_ONLINE){
+    try {
+      const t0 = performance.now();
+      const resp = await fetch(API_BASE + '/classify', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({text, model})
+      });
+      if(!resp.ok) throw new Error('API error ' + resp.status);
+      const data = await resp.json();
+      btn.classList.remove('loading');
+
+      // Classification result
+      document.getElementById('resultLabel').textContent = typeLabels[data.label] || data.label;
+      const sfx = document.getElementById('resultSuffix');
+      sfx.textContent = data.label;
+      sfx.className = 'rsfx ' + data.label;
+
+      // Confidence bar
+      const confPct = (data.confidence * 100).toFixed(1);
+      document.getElementById('confVal').textContent = confPct + '%';
+      const confFill = document.getElementById('confFill');
+      confFill.style.width = '0%';
+      confFill.style.background = data.confidence>=0.8 ? 'var(--accent2)' : data.confidence>=0.6 ? 'var(--accent)' : 'var(--accent3)';
+      setTimeout(() => confFill.style.width = confPct + '%', 50);
+
+      // Probability distribution
+      const probBox = document.getElementById('cls-probs');
+      if(probBox && data.probabilities){
+        probBox.style.display = 'block';
+        document.getElementById('prob-r-val').textContent = ((data.probabilities.R||0)*100).toFixed(1)+'%';
+        document.getElementById('prob-g-val').textContent = ((data.probabilities.G||0)*100).toFixed(1)+'%';
+        document.getElementById('prob-e-val').textContent = ((data.probabilities.E||0)*100).toFixed(1)+'%';
+        document.getElementById('prob-r-bar').style.width = ((data.probabilities.R||0)*100)+'%';
+        document.getElementById('prob-g-bar').style.width = ((data.probabilities.G||0)*100)+'%';
+        document.getElementById('prob-e-bar').style.width = ((data.probabilities.E||0)*100)+'%';
+      }
+
+      // Evidence text
+      const evEl = document.getElementById('cls-ev-txt');
+      evEl.innerHTML = hlEvidence(text.slice(0,400)+(text.length>400?'…':''), (data.citations||[]).join(' '));
+      document.getElementById('cls-ev').style.display = 'block';
+
+      // Citations
+      if(data.citations && data.citations.length > 0){
+        document.getElementById('citTags').innerHTML = data.citations.map(r =>
+          `<div class="cchip"><span>${r}</span><span class="ct">${r.trim().slice(-1)}</span></div>`
+        ).join('');
+        const citRelEl = document.getElementById('citRels');
+        if(citRelEl) citRelEl.innerHTML = data.citations.map(r =>
+          `<div><span style="color:var(--accent)">This provision</span><span style="color:var(--muted)"> → CITES → </span><span style="color:var(--accent2)">${r}</span></div>`
+        ).join('');
+        document.getElementById('citBox').style.display = 'block';
+      } else {
+        document.getElementById('citBox').style.display = 'none';
+      }
+
+      // Model metadata
+      const clsMeta = document.getElementById('cls-meta');
+      if(clsMeta){
+        document.getElementById('cls-model-used').textContent = data.model_used || model;
+        document.getElementById('cls-infer-ms').textContent = (data.inference_ms || (performance.now()-t0)).toFixed(0) + ' ms';
+        clsMeta.style.display = 'flex';
+      }
+
+      // Signals
+      document.getElementById('cls-sig-chips').innerHTML = `<span class="rchip">${data.model_used||'Legal-BERT'}</span><span class="rchip">Neural Classification</span>`;
+      document.getElementById('cls-sig').style.display = 'block';
+      document.getElementById('resultBox').classList.add('visible');
+      return;
+    } catch(err){
+      console.warn('API classify failed, falling back to local:', err);
+    }
+  }
+
+  // ── Local fallback (linguistic pattern approximation) ──
+  setTimeout(() => {
+    btn.classList.remove('loading');
+    const result = classifyProvision(text);
+    const citResult = extractCitations(text);
+
+    document.getElementById('resultLabel').textContent = typeLabels[result.type];
+    const sfx = document.getElementById('resultSuffix');
+    sfx.textContent = result.type;
+    sfx.className = 'rsfx ' + result.type;
+
+    const confPct = (result.confidence * 100).toFixed(1);
+    document.getElementById('confVal').textContent = confPct + '%';
+    const confFill = document.getElementById('confFill');
+    confFill.style.width = '0%';
+    confFill.style.background = result.confidence>=0.8 ? 'var(--accent2)' : result.confidence>=0.6 ? 'var(--accent)' : 'var(--accent3)';
+    setTimeout(() => confFill.style.width = confPct + '%', 50);
+
+    const probBox = document.getElementById('cls-probs');
+    if(probBox){
+      probBox.style.display = 'block';
+      document.getElementById('prob-r-val').textContent = (result.probs.R*100).toFixed(1)+'%';
+      document.getElementById('prob-g-val').textContent = (result.probs.G*100).toFixed(1)+'%';
+      document.getElementById('prob-e-val').textContent = (result.probs.E*100).toFixed(1)+'%';
+      document.getElementById('prob-r-bar').style.width = (result.probs.R*100)+'%';
+      document.getElementById('prob-g-bar').style.width = (result.probs.G*100)+'%';
+      document.getElementById('prob-e-bar').style.width = (result.probs.E*100)+'%';
+    }
+
+    const evEl = document.getElementById('cls-ev-txt');
+    evEl.innerHTML = hlEvidence(text.slice(0,400)+(text.length>400?'…':''), result.allSignals.join(' '));
+    document.getElementById('cls-ev').style.display = 'block';
+
+    if(citResult.refs.length > 0){
+      document.getElementById('citTags').innerHTML = citResult.relations.map(r =>
+        `<div class="cchip"><span>${r.target}</span><span class="ct">${r.target.slice(-1)}</span><span class="rl">${r.relation}</span></div>`
+      ).join('');
+      document.getElementById('citRels').innerHTML = citResult.relations.map(r =>
+        `<div><span style="color:var(--accent)">This provision</span><span style="color:var(--muted)"> → ${r.relation} → </span><span style="color:${r.relation==='AMENDS'?'var(--accent3)':'var(--accent2)'}">${r.target}</span></div>`
+      ).join('');
+      document.getElementById('citBox').style.display = 'block';
+    } else {
+      document.getElementById('citBox').style.display = 'none';
+    }
+
+    const clsMeta = document.getElementById('cls-meta');
+    if(clsMeta){
+      document.getElementById('cls-model-used').textContent = 'Local Fallback';
+      document.getElementById('cls-infer-ms').textContent = '—';
+      clsMeta.style.display = 'flex';
+    }
+
+    document.getElementById('cls-sig-chips').innerHTML = result.signals.map(s => `<span class="rchip">${s}</span>`).join('');
+    document.getElementById('cls-sig').style.display = 'block';
+    document.getElementById('resultBox').classList.add('visible');
+  }, 1100);
+}
+
+/* ─── NETWORK ─── */
+const NODES=[{id:"COBS 6.1.4R",x:55,y:55,col:'#2563ff'},{id:"COBS 2.1.1R",x:195,y:28,col:'#2563ff'},{id:"COBS 9A.2.1R",x:320,y:65,col:'#2563ff'},{id:"COBS 6.1.6G",x:125,y:140,col:'#00c9a7'},{id:"COBS 9A.3.2E",x:248,y:158,col:'#f59e0b'},{id:"COBS 11.2A.1G",x:345,y:168,col:'#00c9a7'}];
+const EDGES=[{s:0,t:1,r:'CITES'},{s:1,t:2,r:'CITES'},{s:0,t:3,r:'CITES'},{s:3,t:4,r:'CITES'},{s:2,t:4,r:'CITES'},{s:2,t:5,r:'CITES'},{s:1,t:4,r:'AMENDS'}];
+function buildNetwork(){
+  const svg=document.getElementById('networkSvg'); if(!svg) return;
+  let h=`<defs><marker id="aC" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 z" fill="#2563ff" opacity=".7"/></marker><marker id="aA" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 z" fill="#f59e0b" opacity=".7"/></marker></defs>`;
+  EDGES.forEach(e=>{
+    const s=NODES[e.s],t=NODES[e.t],dx=t.x-s.x,dy=t.y-s.y,l=Math.sqrt(dx*dx+dy*dy),ux=dx/l,uy=dy/l,r=18,col=e.r==='AMENDS'?'#f59e0b':'#2563ff',m=e.r==='AMENDS'?'aA':'aC',da=e.r==='AMENDS'?'5,3':'none';
+    h+=`<line x1="${s.x+ux*r}" y1="${s.y+uy*r}" x2="${t.x-ux*r}" y2="${t.y-uy*r}" stroke="${col}" stroke-width="1.5" stroke-opacity=".45" marker-end="url(#${m})" stroke-dasharray="${da}"/>`;
+  });
+  NODES.forEach(n=>{
+    const pts=n.id.split(' ');
+    h+=`<g transform="translate(${n.x},${n.y})"><circle r="18" fill="${n.col}" fill-opacity=".1" stroke="${n.col}" stroke-width="1.5"/><text text-anchor="middle" dy="-5" fill="${n.col}" font-family="IBM Plex Mono" font-size="6" font-weight="600">${pts[1]}</text><text text-anchor="middle" dy="5" fill="${n.col}" font-family="IBM Plex Mono" font-size="6">${pts[2]||''}</text></g>`;
+  });
+  h+=`<g transform="translate(8,192)"><line x1="0" y1="4" x2="18" y2="4" stroke="#2563ff" stroke-width="1.5" marker-end="url(#aC)"/><text x="23" y="8" fill="#64748b" font-family="IBM Plex Mono" font-size="8">CITES</text><line x1="65" y1="4" x2="83" y2="4" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#aA)"/><text x="88" y="8" fill="#64748b" font-family="IBM Plex Mono" font-size="8">AMENDS</text></g>`;
+  svg.innerHTML=h;
+}
+/* ─── EXTRACTIONS ─── */
+const EXTS=[{"s": "COBS 1.1.1A", "t": "COBS 1.1.1AE", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1A", "t": "COBS 4.6", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1A", "t": "COBS 4.7", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1A", "t": "COBS 4.10", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AA", "t": "COBS 6.2B", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AA", "t": "COBS 1.1.1AR", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 1.1.1AR", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 6.1ZA", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 6.2B", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 11.2A.34R", "r": "CITES", "c": 0.92}];
+function buildExtractions(){
+  const el=document.getElementById('extList'); if(!el) return;
+  el.innerHTML=EXTS.map((e,i)=>`<div class="ei" style="animation-delay:${i*.07}s"><span class="esrc">${e.s}</span><span class="earr">${e.r}</span><span class="etgt">${e.t}</span><span class="rb ${e.r}">${e.r}</span><span class="econf">${Math.round(e.c*100)}%</span></div>`).join('');
+}
+/* ─── TABS ─── */
+function sw(name, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='overview'){ buildNetwork(); buildExtractions(); }
+}
+buildNetwork(); buildExtractions();
+</script>
+</body>
+</html>

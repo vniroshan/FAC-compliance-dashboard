@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>COBS NLP - Regulatory Intelligence Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<style>
+/* minimal — only things Bootstrap cannot do natively */
+.view { display: none; }
+.view.active { display: block; }
+.nav-tab { background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; color: #6c757d; padding: 0 14px; height: 54px; transition: color .15s, border-color .15s; }
+.nav-tab:hover { color: #adb5bd; }
+.nav-tab.active { color: #0d6efd; border-bottom-color: #0d6efd; }
+.nw { height: 210px; }
+.nw svg, svg.fsv { width: 100%; height: 100%; }
+@keyframes dash { from { stroke-dasharray: 0 357.8; } }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar sticky-top border-bottom px-3" style="height:54px;background:rgba(26,29,33,.97);backdrop-filter:blur(20px)">
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge bg-primary font-monospace fw-bold" style="font-size:10px;letter-spacing:.06em">FCA</span>
+    <div>
+      <div class="fw-semibold" style="font-size:15px;letter-spacing:-.01em">COBS·NLP</div>
+      <div class="text-secondary font-monospace" style="font-size:9px;letter-spacing:.12em">REGULATORY INTELLIGENCE</div>
+    </div>
+  </div>
+  <nav class="d-none d-md-flex h-100">
+    <button class="nav-tab active" onclick="sw('overview',this)">Overview</button>
+    <button class="nav-tab" onclick="sw('search',this)">🔍 Similarity Search</button>
+    <button class="nav-tab" onclick="sw('classifier',this)">Classifier</button>
+    <button class="nav-tab" onclick="sw('models',this)">Models</button>
+  </nav>
+  <div id="apiStatusPill" class="d-flex align-items-center gap-1 border rounded px-2 py-1 font-monospace text-success" style="font-size:10px;background:rgba(32,201,151,.07);border-color:rgba(32,201,151,.2)!important">
+    <span class="rounded-circle d-inline-block" id="apiStatusDot" style="background:#6c757d"></span>
+    <span id="apiStatusText">Connecting…</span>
+  </div>
+</nav>
+
+<div class="container-xxl py-4 px-3 px-md-4">
+
+<!-- OVERVIEW -->
+<div class="view active" id="view-overview">
+  <div class="font-monospace text-secondary mb-3" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase">system performance overview</div>
+  <div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+    <div class="col"><div class="card card-body h-100"><div class="text-secondary font-monospace mb-2" style="font-size:9px;letter-spacing:.14em;text-transform:uppercase">Classification Accuracy</div><div class="font-monospace fw-bold text-primary lh-1" style="font-size:28px" id="mc-accuracy">95.0<span class="text-secondary" style="font-size:16px">%</span></div><div class="text-secondary mt-1" style="font-size:11px">Legal-BERT &nbsp;<span class="text-success font-monospace" style="font-size:10px" id="mc-accuracy-delta">+9.9pp vs baseline</span></div></div></div>
+    <div class="col"><div class="card card-body h-100"><div class="text-secondary font-monospace mb-2" style="font-size:9px;letter-spacing:.14em;text-transform:uppercase">Citation Precision</div><div class="font-monospace fw-bold text-success lh-1" style="font-size:28px" id="mc-citation-precision">88.3<span class="text-secondary" style="font-size:16px">%</span></div><div class="text-secondary mt-1" style="font-size:11px">Hybrid pipeline &nbsp;<span class="text-success font-monospace" style="font-size:10px" id="mc-citation-precision-delta">+9.4pp vs ML-only</span></div></div></div>
+    <div class="col"><div class="card card-body h-100"><div class="text-secondary font-monospace mb-2" style="font-size:9px;letter-spacing:.14em;text-transform:uppercase">Citation Recall</div><div class="font-monospace fw-bold text-warning lh-1" style="font-size:28px" id="mc-citation-recall">79.1<span class="text-secondary" style="font-size:16px">%</span></div><div class="text-secondary mt-1" style="font-size:11px">Hybrid pipeline &nbsp;<span class="text-success font-monospace" style="font-size:10px" id="mc-citation-recall-delta">+20.7pp vs rule-only</span></div></div></div>
+    <div class="col"><div class="card card-body h-100"><div class="text-secondary font-monospace mb-2" style="font-size:9px;letter-spacing:.14em;text-transform:uppercase">Corpus Size</div><div class="font-monospace fw-bold lh-1" style="font-size:28px" id="mc-corpus" style="color:#6f42c1">802</div><div class="text-secondary mt-1" style="font-size:11px">COBS provisions &nbsp;<span class="text-success font-monospace" style="font-size:10px" id="mc-corpus-delta" style="color:#6f42c1">3 types (R, G, E)</span></div></div></div>
+  </div>
+  <div class="row g-3 mb-3">
+    <div class="col-md-8">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#ffc107"></div>Per-Class F1 · Legal-BERT</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">BEST MODEL</div></div>
+          <div class="d-flex flex-column gap-2 mb-4" id="per-class-bars">
+            <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px" id="pcf1-r-lbl">Rule (R) · n=76</span><span class="text-secondary font-monospace" style="font-size:11px" id="pcf1-r-val">97.4%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="pcf1-r-bar" style="width:97.4%;--fc:#0d6efd;--d:.1s"></div></div></div>
+            <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px" id="pcf1-g-lbl">Guidance (G) · n=43</span><span class="text-secondary font-monospace" style="font-size:11px" id="pcf1-g-val">93.2%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="pcf1-g-bar" style="width:93.2%;--fc:#20c997;--d:.2s"></div></div></div>
+            <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px" id="pcf1-e-lbl">Evidential (E) · n=2</span><span class="text-secondary font-monospace" style="font-size:11px" id="pcf1-e-val">0.0%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="pcf1-e-bar" style="width:0.5%;--fc:#ffc107;--d:.3s"></div></div></div>
+          </div>
+          <div class="border-top pt-3">
+            <div class="d-flex align-items-center gap-2 fw-semibold mb-2" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#20c997"></div>Extraction Pipeline</div>
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px">Rule-Based Precision</span><span class="text-secondary font-monospace" style="font-size:11px" id="ep-rb-prec-val">96.2%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="ep-rb-prec-bar" style="width:96.2%;--fc:#0d6efd;--d:.5s"></div></div></div>
+              <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px">ML-Only Recall</span><span class="text-secondary font-monospace" style="font-size:11px" id="ep-ml-rec-val">81.2%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="ep-ml-rec-bar" style="width:81.2%;--fc:#20c997;--d:.6s"></div></div></div>
+              <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px">Hybrid F1</span><span class="text-secondary font-monospace" style="font-size:11px" id="ep-hyb-f1-val">83.5%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="ep-hyb-f1-bar" style="width:83.5%;--fc:#ffc107;--d:.7s"></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#20c997"></div>Corpus Distribution</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400" id="corpus-ptag">802 DOCS</div></div>
+          <div class="d-flex flex-column align-items-center gap-3" id="corpus-chart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#20c997"></div>Citation Network Sample</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">REAL DATA</div></div>
+          <div class="nw"><svg class="fsv" id="networkSvg" viewBox="0 0 380 210"></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#ffc107"></div>Recent Extractions</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">HYBRID PIPELINE</div></div>
+          <div id="extList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SIMILARITY SEARCH -->
+<div class="view" id="view-search">
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="fw-semibold mb-1">Provision Similarity Search</h5>
+      <p class="font-monospace text-secondary mb-3" style="font-size:11px">Semantic similarity search over 802 COBS provisions · choose embedding model below</p>
+      <div class="d-flex gap-2 align-items-start flex-column flex-md-row">
+        <textarea class="form-control font-monospace flex-grow-1" id="searchInput" rows="4" placeholder="Describe a compliance scenario or paste regulatory text…&#10;e.g. &quot;A firm is recommending a structured product to a retail client with low risk tolerance…&quot;" style="font-size:12px;resize:none"></textarea>
+        <div class="d-flex flex-column gap-2" style="min-width:200px">
+          <select class="form-select form-select-sm font-monospace" id="simModelSelect" style="font-size:11px">
+            <option value="legal-bert">Legal-BERT [CLS] 768-dim</option>
+            <option value="sentence-transformer" selected>SentenceTransformer 384-dim</option>
+          </select>
+          <select class="form-select form-select-sm font-monospace" id="topkSelect" style="font-size:11px">
+            <option value="3">Top 3 results</option>
+            <option value="5" selected>Top 5 results</option>
+            <option value="7">Top 7 results</option>
+            <option value="10">Top 10 results</option>
+          </select>
+          <button class="btn btn-primary btn-sm font-monospace fw-bold d-flex align-items-center gap-2" id="searchBtn" onclick="runSearch()" style="font-size:11px;letter-spacing:.06em;text-transform:uppercase">
+            <div class="spinner-border spinner-border-sm d-none text-light" style="width:.7rem;height:.7rem;border-width:2px"></div><span class="stxt">FIND SIMILAR</span>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm font-monospace" onclick="clearSearch()" style="font-size:11px">CLEAR</button>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+        <span class="font-monospace text-secondary" style="font-size:10px">SCENARIOS:</span>
+        <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadScenario(0)">Suitability Assessment</button>
+        <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadScenario(1)">Best Execution</button>
+        <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadScenario(2)">Client Disclosure</button>
+        <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadScenario(3)">Product Governance</button>
+        <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadScenario(4)">Inducements &amp; Conflicts</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-none" id="resultsArea">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="font-monospace text-secondary" style="font-size:11px">Found <strong id="rcount">—</strong> relevant COBS provisions · sorted by similarity</div>
+      <div class="d-flex gap-1">
+        <button class="btn btn-outline-primary btn-sm font-monospace active" style="font-size:10px;padding:3px 9px" onclick="sortRes('sim',this)">Similarity</button>
+        <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px;padding:3px 9px" onclick="sortRes('type',this)">Type</button>
+        <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px;padding:3px 9px" onclick="sortRes('ref',this)">Reference</button>
+      </div>
+    </div>
+    <div id="searchModelInfo" class="font-monospace text-secondary border rounded px-2 py-1 d-none mb-2" style="font-size:11px"></div>
+    <div id="resList"></div>
+  </div>
+</div>
+
+<!-- CLASSIFIER -->
+<div class="view" id="view-classifier">
+  <div class="font-monospace text-secondary mb-3" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase">document type classification · with evidence &amp; citation extraction</div>
+  <div class="row g-3">
+    <div class="col-md-8">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#0d6efd"></div>Provision Classifier</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">LEGAL-BERT</div></div>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+              <span class="font-monospace text-secondary" style="font-size:9px">SAMPLES:</span>
+              <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadClsSample('R')">Rule</button>
+              <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadClsSample('G')">Guidance</button>
+              <button class="btn btn-outline-secondary btn-sm font-monospace" style="font-size:10px" onclick="loadClsSample('E')">Evidential</button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="font-monospace text-secondary" style="font-size:9px">MODEL:</span>
+              <select id="clsModelSelect" class="form-select form-select-sm font-monospace" style="font-size:10px;width:auto">
+                <option value="legal-bert" selected>Legal-BERT (fine-tuned)</option>
+                <option value="svm">SVM + TF-IDF (baseline)</option>
+              </select>
+            </div>
+          </div>
+          <textarea class="form-control font-monospace mb-2" id="classifyInput" rows="4" placeholder="Paste a COBS regulatory provision here…" style="font-size:12px;resize:none"></textarea>
+          <button class="btn btn-primary btn-sm font-monospace fw-bold d-flex align-items-center gap-2 align-self-start cbtn" id="classifyBtn" onclick="runClassify()" style="font-size:11px;letter-spacing:.06em;text-transform:uppercase">
+            <div class="spinner-border spinner-border-sm d-none text-light" style="width:.7rem;height:.7rem;border-width:2px"></div><span class="cl">CLASSIFY &amp; EXTRACT</span>
+          </button>
+          <div class="card mt-3" id="resultBox">
+            <div class="card-body">
+              <div class="font-monospace text-secondary mb-2" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Classification Result</div>
+              <div class="d-flex align-items-center gap-2 mb-2"><div class="fw-bold" style="font-size:18px" id="resultLabel">—</div><div class="badge bg-primary font-monospace fw-bold" style="font-size:13px" id="resultSuffix">R</div></div>
+              <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between font-monospace text-secondary" style="font-size:9px"><span>Confidence</span><span id="confVal">—</span></div><div class="progress" style="height:4px"><div class="progress-bar bg-primary" id="confFill" style="width:0%"></div></div></div>
+              <div id="cls-probs" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)">
+                <div class="font-monospace text-secondary mb-1" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Softmax Probability Distribution</div>
+                <div class="d-flex flex-column gap-2 mt-2">
+                  <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px" style="color:#0d6efd">Rule (R)</span><span class="text-secondary font-monospace" style="font-size:11px" id="prob-r-val">0%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="prob-r-bar" style="width:0%;--fc:#0d6efd;transition:width .8s cubic-bezier(.23,1,.32,1)"></div></div></div>
+                  <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px" style="color:#20c997">Guidance (G)</span><span class="text-secondary font-monospace" style="font-size:11px" id="prob-g-val">0%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="prob-g-bar" style="width:0%;--fc:#20c997;transition:width .8s cubic-bezier(.23,1,.32,1)"></div></div></div>
+                  <div class="d-flex flex-column gap-1"><div class="d-flex justify-content-between align-items-center"><span class="text-secondary-emphasis" style="font-size:11px" style="color:#ffc107">Evidential (E)</span><span class="text-secondary font-monospace" style="font-size:11px" id="prob-e-val">0%</span></div><div class="progress" style="height:5px;border-radius:2px"><div class="progress-bar" id="prob-e-bar" style="width:0%;--fc:#ffc107;transition:width .8s cubic-bezier(.23,1,.32,1)"></div></div></div>
+                </div>
+              </div>
+              <div id="cls-ev" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)">
+                <div class="font-monospace text-secondary mb-1" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Evidence Snippet · Classification signals highlighted</div>
+                <div class="font-monospace text-secondary bg-dark border-start border-primary ps-3 py-2 border-opacity-50" style="font-size:12px;line-height:1.7;border-radius:0 4px 4px 0" id="cls-ev-txt"></div>
+              </div>
+              <div id="citBox" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)">
+                <div class="font-monospace text-secondary mb-1" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Extracted Citations &amp; Relation Map</div>
+                <div class="d-flex flex-wrap gap-1 mt-1" id="citTags"></div>
+                <div id="citRels" style="margin-top:10px;font-family:monospace;font-size:11px;color:#6c757d;line-height:1.8"></div>
+              </div>
+              <div id="cls-sig" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)">
+                <div class="font-monospace text-secondary mb-1" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Classification Signals</div>
+                <div class="d-flex gap-2 flex-wrap" id="cls-sig-chips"></div>
+              </div>
+              <div id="cls-meta" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);gap:16px;flex-wrap:wrap">
+                <div><div style="font-family:monospace;font-size:9px;color:#6c757d;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px">Model</div><div id="cls-model-used" style="font-family:monospace;font-size:11px;color:#20c997">—</div></div>
+                <div><div style="font-family:monospace;font-size:9px;color:#6c757d;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px">Inference</div><div id="cls-infer-ms" style="font-family:monospace;font-size:11px;color:#ffc107">—</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column gap-3">
+          <div class="d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#6f42c1"></div>How It Works</div></div>
+          <div class="card">
+            <div class="card-body p-3">
+              <div class="elvl mb-2">Provision Type Signals</div>
+              <div class="d-flex flex-column gap-2" style="font-size:12px">
+                <div><span class="font-monospace text-primary">Rule (R)</span> &nbsp;→&nbsp; <code class="bg-primary bg-opacity-10 text-primary px-1">must</code> · binding obligation</div>
+                <div><span class="font-monospace text-success">Guidance (G)</span> &nbsp;→&nbsp; <code class="bg-success bg-opacity-10 text-success px-1">should</code> · advisory</div>
+                <div><span class="font-monospace text-warning">Evidential (E)</span> &nbsp;→&nbsp; <code class="bg-warning bg-opacity-10 text-warning px-1">tending to show</code></div>
+                <div><span class="font-monospace" style="color:#6f42c1">Direction (D)</span> &nbsp;→&nbsp; FCA directive to named firm</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body p-3">
+              <div class="elvl mb-2">Offline Approximation Pipeline</div>
+              <div class="d-flex flex-column gap-2 text-secondary" style="font-size:11px">
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#0d6efd;flex-shrink:0;margin-top:4px"></div><span>Feature extraction: 38 weighted linguistic patterns</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#0d6efd;flex-shrink:0;margin-top:4px"></div><span>COBS reference suffix prior (R/G/E suffix → class boost)</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#20c997;flex-shrink:0;margin-top:4px"></div><span>Softmax normalisation (T=1.2) → probability distribution</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#20c997;flex-shrink:0;margin-top:4px"></div><span>Regex citation extractor with context-aware relation classification</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#ffc107;flex-shrink:0;margin-top:4px"></div><span>Relation classifier: CITES / AMENDS</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body p-3">
+              <div class="elvl mb-2">Production Pipeline (Legal-BERT)</div>
+              <div class="d-flex flex-column gap-2 text-secondary" style="font-size:11px">
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#0d6efd;flex-shrink:0;margin-top:4px"></div><span>WordPiece tokenisation (max 512 tokens)</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#0d6efd;flex-shrink:0;margin-top:4px"></div><span>[CLS] embedding (768-dim) → dropout p=0.1</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#20c997;flex-shrink:0;margin-top:4px"></div><span>Linear 768→3 softmax · F1: R=97.4%, G=93.2%</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#20c997;flex-shrink:0;margin-top:4px"></div><span>Accuracy: 95.0% on held-out test set (n=121)</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODELS -->
+<div class="view" id="view-models">
+  <div class="font-monospace text-secondary mb-3" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase">model benchmarks · held-out test set</div>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#6f42c1"></div>Classification Comparison</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">TASK 1</div></div>
+          <table class="table table-dark table-hover table-sm mb-0">
+            <thead><tr><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">MODEL</th><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">PRECISION</th><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">RECALL</th><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">F1</th><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">ACCURACY</th></tr></thead>
+            <tbody id="model-comparison-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#20c997"></div>Extraction Ablation</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">TASK 2</div></div>
+          <table class="table table-dark table-hover table-sm mb-0">
+            <thead><tr><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">CONFIGURATION</th><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">PRECISION</th><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">RECALL</th><th class="font-monospace text-secondary" style="font-size:9px;letter-spacing:.1em">F1</th></tr></thead>
+            <tbody id="ablation-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div></div>
+
+<footer class="border-top mt-4 py-3 px-3 px-md-4">
+  <div class="container-xxl d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="font-monospace text-secondary" style="font-size:10px">MSc Computer Science · FCA COBS NLP Project · Pipeline Results</span>
+    <div class="d-flex gap-3">
+      <a class="font-monospace text-secondary text-decoration-none" style="font-size:10px" href="#">GitHub</a>
+      <a class="font-monospace text-secondary text-decoration-none" style="font-size:10px" href="#">Dataset (CC-BY 4.0)</a>
+      <a class="font-monospace text-secondary text-decoration-none" style="font-size:10px" href="#">Dissertation</a>
+      <a class="font-monospace text-secondary text-decoration-none" style="font-size:10px" href="#">HuggingFace</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+function simColor(s){ return s>=0.8?'#20c997':s>=0.6?'#0d6efd':s>=0.4?'#ffc107':'#6c757d'; }
+
+function hlEvidence(text, query) {
+  const words = query.toLowerCase().split(/\s+/).filter(w=>w.length>3).slice(0,10);
+  let r = text;
+  words.forEach(w=>{ r = r.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark>$1</mark>'); });
+  return r;
+}
+
+function matchReasons(q, prov) {
+  const r = [];
+  prov.kw.filter(k=>q.toLowerCase().includes(k.toLowerCase())).slice(0,3).forEach(k=>r.push(k));
+  if(prov.cits.length>0) r.push(`${prov.cits.length} citation(s)`);
+  if(['R','E'].includes(prov.type)) r.push('binding provision');
+  if(r.length===0) r.push('semantic similarity');
+  return r.slice(0,5);
+}
+
+/* ─── SCENARIOS ─── */
+const SCENARIOS = [
+  "A firm is recommending a structured product to a retail client with limited investment experience and low risk tolerance. The compliance team needs to understand the suitability assessment requirements and what client information must be collected before making the recommendation.",
+  "An investment firm is placing large client orders across multiple execution venues. The head of compliance needs to understand the best execution obligations, what execution factors must be considered, and how the execution policy should be maintained.",
+  "A firm is preparing pre-contractual disclosures for a new investment service targeted at retail clients. The compliance officer needs to know what information must be disclosed, in what format, and the required timing of those disclosures.",
+  "A firm is launching a new retail investment product. The product governance team needs to understand requirements for defining the target market, selecting appropriate distribution channels, and ensuring the product only reaches suitable clients.",
+  "A firm's execution desk pays third-party brokers for bundled research and execution services. The compliance officer needs to understand the rules on inducements, conflicts of interest, and whether the payment arrangement is permissible."
+];
+
+let curResults = [];
+
+/* API CONFIG — FastAPI backend running locally */
+const API_BASE = 'http://localhost:8000';
+let API_ONLINE = false;
+
+async function checkAPIHealth() {
+  const dot  = document.getElementById('apiStatusDot');
+  const text = document.getElementById('apiStatusText');
+  try {
+    const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
+    if (r.ok) {
+      const h = await r.json();
+      API_ONLINE = h.bert_loaded; // true only when Legal-BERT is ready
+      dot.style.background  = API_ONLINE ? '#20c997' : '#ffc107';
+      text.textContent      = API_ONLINE ? 'Model API Online' : 'API — BERT loading…';
+      // dot.style.animation removed — @keyframes blink no longer defined
+    } else { throw new Error('bad status'); }
+  } catch {
+    API_ONLINE = false;
+    dot.style.background = '#dc3545';
+    dot.style.animation  = 'none';
+    text.textContent     = 'API Offline — local fallback';
+  }
+  // recheck every 8 s
+  setTimeout(checkAPIHealth, 8000);
+}
+checkAPIHealth();
+
+function loadScenario(i){ document.getElementById('searchInput').value=SCENARIOS[i]; document.getElementById('resultsArea').classList.add('d-none'); }
+function clearSearch(){ document.getElementById('searchInput').value=''; document.getElementById('resultsArea').classList.add('d-none'); curResults=[]; }
+
+async function runSearch(){
+  const q = document.getElementById('searchInput').value.trim();
+  if(!q) return;
+  const btn = document.getElementById('searchBtn');
+  const k = parseInt(document.getElementById('topkSelect').value);
+  const simModel = document.getElementById('simModelSelect') ? document.getElementById('simModelSelect').value : 'sentence-transformer';
+  btn.classList.add('loading');
+  btn.querySelectorAll('.spinner-border').forEach(s=>s.classList.remove('d-none'));
+  btn.disabled = true;
+
+  if (!API_ONLINE) {
+    btn.classList.remove('loading');
+    btn.querySelectorAll('.spinner-border').forEach(s=>s.classList.add('d-none'));
+    btn.disabled = false;
+    document.getElementById('searchModelInfo').textContent =
+      '⚠️ API offline — start the server: python -m uvicorn api.app:app --port 8000';
+    document.getElementById('searchModelInfo').style.display = 'block';
+    return;
+  }
+
+  /* ── Real model: POST /similarity ── */
+  try {
+    const res  = await fetch(`${API_BASE}/similarity`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ query: q, top_k: k, model: simModel }),
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    btn.classList.remove('loading');
+    btn.querySelectorAll('.spinner-border').forEach(s=>s.classList.add('d-none'));
+    btn.disabled = false;
+
+    // Map API results to renderResults format
+    curResults = data.results.map(r => ({
+      ref  : r.provision_ref,
+      type : r.type_code,
+      ch   : r.provision_ref.split(' ')[1]?.split('.')[0] || '?',
+      title: r.provision_ref,
+      text : r.text_snippet,
+      cits : [], rels: [], kw: [],
+      score: r.score,
+    }));
+
+    document.getElementById('searchModelInfo').textContent =
+      `◾ ${data.model_used} · ${data.inference_ms} ms`;
+    document.getElementById('searchModelInfo').style.display = 'block';
+
+    renderResults(q, curResults, 'sim');
+  } catch(e) {
+    console.warn('API similarity call failed:', e);
+    btn.classList.remove('loading');
+    document.getElementById('searchModelInfo').textContent =
+      '⚠️ API offline — start the server: python -m uvicorn api.app:app --port 8000';
+    document.getElementById('searchModelInfo').style.display = 'block';
+  }
+}
+
+function renderResults(q, results, sortBy){
+  let sorted = [...results];
+  if(sortBy==='type') sorted.sort((a,b)=>a.type.localeCompare(b.type));
+  if(sortBy==='ref') sorted.sort((a,b)=>a.ref.localeCompare(b.ref));
+
+  document.getElementById('rcount').textContent = sorted.length;
+  const typeLabel = {R:'Rule',G:'Guidance',E:'Evidential Provision',D:'Direction'};
+
+  document.getElementById('resList').innerHTML = sorted.map((p,i)=>{
+    const sc = p.score, col = simColor(sc), pct = Math.round(sc*100);
+    const evSnip = hlEvidence(p.text.slice(0,300)+(p.text.length>300?'…':''), q);
+    const reasons = matchReasons(q, p);
+    const typeBg={R:'primary',G:'success',E:'warning',D:'secondary'};
+    const typeCols={R:'#0d6efd',G:'#20c997',E:'#ffc107',D:'#6f42c1'};
+    const citsHtml = p.cits.map(c=>{
+      const rel = p.rels.find(r=>r.t===c);
+      return `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 font-monospace" style="font-size:10px;cursor:pointer" title="${c}">${c} <small class="opacity-50">${rel?rel.r:'CITES'}</small></span>`;
+    }).join('');
+    const relMapHtml = p.rels.map(r=>
+      `<div class="font-monospace" style="font-size:11px"><span style="color:#0d6efd">${r.s}</span><span class="text-secondary"> → ${r.r} → </span><span style="color:#ffc107">${r.t}</span></div>`
+    ).join('');
+    const reasonHtml = reasons.map(r=>`<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 font-monospace" style="font-size:10px">${r}</span>`).join('');
+    return `
+    <div class="card border-secondary mb-2" id="rc${i}">
+      <div class="card-header d-flex align-items-center gap-2 py-2" style="cursor:pointer" onclick="toggleCard(${i})">
+        <span class="badge bg-${typeBg[p.type]||'secondary'} bg-opacity-25 text-${typeBg[p.type]||'secondary'} border font-monospace fw-bold" style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;font-size:10px">${i+1}</span>
+        <span class="font-monospace fw-semibold" style="font-size:13px">${p.ref}</span>
+        <span class="badge bg-${typeBg[p.type]||'secondary'} bg-opacity-10 text-${typeBg[p.type]||'secondary'} border font-monospace" style="font-size:10px">${typeLabel[p.type]||p.type}</span>
+        <span class="text-secondary flex-fill" style="font-size:12px">${p.title}</span>
+        <div class="d-flex align-items-center gap-2" style="min-width:120px">
+          <div class="progress flex-fill" style="height:4px"><div class="progress-bar" style="width:0%;background:${col}" data-w="${pct}%"></div></div>
+          <span class="font-monospace fw-semibold" style="font-size:11px;color:${col};min-width:34px;text-align:right">${pct}%</span>
+        </div>
+        <span class="text-secondary" style="font-size:14px;transition:transform .2s" id="exp${i}">▾</span>
+      </div>
+      <div class="card-body rcb d-none pt-2">
+        <p class="font-monospace text-secondary mb-1" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Evidence Snippet</p>
+        <div class="font-monospace text-secondary bg-dark border-start border-primary border-opacity-50 ps-3 py-2 mb-3" style="font-size:12px;line-height:1.7;border-radius:0 4px 4px 0">${evSnip}</div>
+        <p class="font-monospace text-secondary mb-1" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Extracted Citations</p>
+        <div class="d-flex flex-wrap gap-1 mb-3">${citsHtml}</div>
+        <p class="font-monospace text-secondary mb-1" style="font-size:9px;letter-spacing:.12em;text-transform:uppercase">Match Signals</p>
+        <div class="d-flex gap-2 flex-wrap mb-3">${reasonHtml}</div>
+        <div class="d-flex gap-3 flex-wrap border-top pt-2 mt-2">
+          <div class="d-flex flex-column gap-1"><span class="font-monospace text-secondary" style="font-size:9px;text-transform:uppercase;letter-spacing:.1em">Similarity</span><span class="font-monospace fw-semibold" style="color:${col}">${sc.toFixed(3)}</span></div>
+          <div class="d-flex flex-column gap-1"><span class="font-monospace text-secondary" style="font-size:9px;text-transform:uppercase;letter-spacing:.1em">Type</span><span class="font-monospace fw-semibold" style="color:${typeCols[p.type]||'#adb5bd'}">${p.type}</span></div>
+          <div class="d-flex flex-column gap-1"><span class="font-monospace text-secondary" style="font-size:9px;text-transform:uppercase;letter-spacing:.1em">Chapter</span><span class="font-monospace fw-semibold">COBS ${p.ch}</span></div>
+          <div class="d-flex flex-column gap-1"><span class="font-monospace text-secondary" style="font-size:9px;text-transform:uppercase;letter-spacing:.1em">Cross-refs</span><span class="font-monospace fw-semibold">${p.cits.length}</span></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('resultsArea').classList.remove('d-none');
+  setTimeout(()=>{
+    document.querySelectorAll('.sbf[data-w]').forEach(el=>{
+      el.style.width = el.dataset.w;
+    });
+  }, 80);
+}
+
+function toggleCard(i){
+  const body=document.querySelector(`#rc${i} .rcb`);
+  const exp=document.getElementById(`exp${i}`);
+  if(body) body.classList.toggle('d-none');
+  if(exp)  exp.style.transform = (body && !body.classList.contains('d-none')) ? 'rotate(180deg)' : '';
+}
+
+function sortRes(mode, btn){
+  document.querySelectorAll('[onclick*="sortRes"]').forEach(b=>{ b.classList.remove('active','btn-outline-primary'); b.classList.add('btn-outline-secondary'); });
+  btn.classList.remove('btn-outline-secondary'); btn.classList.add('active','btn-outline-primary');
+  if(curResults.length>0) renderResults(document.getElementById('searchInput').value, curResults, mode);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CLASSIFIER — Rule-based approximation of Legal-BERT
+   Mimics the trained nlpaueb/legal-bert-base-uncased model
+   using weighted linguistic feature scoring + softmax
+   confidence normalisation. In production, this calls the
+   hosted model endpoint; here it runs offline.
+═══════════════════════════════════════════════════════════ */
+const CLS_SAMPLES={
+  R:"A firm must take reasonable steps to ensure that a personal recommendation, or a decision to trade, is suitable for its client. COBS 9A.2.1R applies and the firm must consider the investment objectives including the client's attitude to risk and the purpose of the investment, as required under COBS 9A.3.2R.",
+  G:"Where a firm is providing portfolio management services, it should consider whether it is appropriate to establish a standing arrangement to execute transactions outside a regulated market. The firm should have regard to COBS 11.2A.1G and best execution requirements.",
+  E:"Compliance with this rule may be relied upon as tending to show compliance with COBS 2.1.1R. A firm that departs from this provision must demonstrate to the FCA how it is nonetheless acting in the best interests of the client under COBS 2.1.1R."
+};
+
+function loadClsSample(t){ document.getElementById('classifyInput').value=CLS_SAMPLES[t]; document.getElementById('resultBox').classList.add('d-none'); }
+
+/* ── Feature extraction (mirrors TF-IDF + linguistic features fed to the model) ── */
+const RULE_PATTERNS = [
+  { re:/\bmust\b/gi,                     w:2.8,  name:'must (deontic)' },
+  { re:/\bmust not\b/gi,                  w:3.2,  name:'must not (prohibition)' },
+  { re:/\bis required to\b/gi,            w:2.5,  name:'is required to' },
+  { re:/\bshall\b/gi,                     w:2.2,  name:'shall (mandatory)' },
+  { re:/\bshall not\b/gi,                 w:2.6,  name:'shall not' },
+  { re:/\bis not permitted\b/gi,          w:2.4,  name:'not permitted' },
+  { re:/\ba firm must\b/gi,               w:1.8,  name:'a firm must' },
+  { re:/\bobligat/gi,                     w:1.5,  name:'obligation' },
+  { re:/\bbinding\b/gi,                   w:1.3,  name:'binding' },
+  { re:/\bprohibit/gi,                    w:1.6,  name:'prohibition' },
+  { re:/\bcontravention\b/gi,             w:1.4,  name:'contravention' },
+  { re:/\bin accordance with\b/gi,        w:1.0,  name:'in accordance with' },
+  { re:/\bensure that\b/gi,               w:1.2,  name:'ensure that' },
+  { re:/\bunless\b/gi,                    w:0.8,  name:'unless (exception)' },
+  { re:/\bsubject to\b/gi,                w:0.7,  name:'subject to' },
+];
+const GUIDANCE_PATTERNS = [
+  { re:/\bshould\b/gi,                    w:2.8,  name:'should (advisory)' },
+  { re:/\bshould not\b/gi,                w:2.5,  name:'should not' },
+  { re:/\bmay wish to\b/gi,               w:2.2,  name:'may wish to' },
+  { re:/\bshould consider\b/gi,           w:2.4,  name:'should consider' },
+  { re:/\bshould have regard\b/gi,        w:2.3,  name:'should have regard' },
+  { re:/\bwould expect\b/gi,              w:2.0,  name:'would expect' },
+  { re:/\bgood practice\b/gi,             w:1.8,  name:'good practice' },
+  { re:/\bmay also\b/gi,                  w:1.3,  name:'may also'},
+  { re:/\bfirms should\b/gi,              w:1.5,  name:'firms should' },
+  { re:/\bfor example\b/gi,               w:0.8,  name:'for example' },
+  { re:/\bhave regard to\b/gi,            w:1.4,  name:'have regard to' },
+  { re:/\bappropriate\b/gi,               w:0.9,  name:'appropriate' },
+  { re:/\bwhere a firm\b/gi,              w:0.7,  name:'where a firm' },
+  { re:/\bin particular\b/gi,             w:0.6,  name:'in particular' },
+];
+const EVIDENTIAL_PATTERNS = [
+  { re:/\btending to (show|establish|indicate)\b/gi, w:4.5, name:'tending to show/establish' },
+  { re:/\bmay be relied upon\b/gi,        w:4.2,  name:'may be relied upon' },
+  { re:/\btending to show compliance\b/gi,w:4.8,  name:'tending to show compliance' },
+  { re:/\bcontravention may be relied\b/gi,w:4.0, name:'contravention relied upon' },
+  { re:/\bdeparts from\b/gi,              w:3.5,  name:'departs from' },
+  { re:/\bevidential\b/gi,                w:3.0,  name:'evidential' },
+  { re:/\bcompliance with.*?rule\b/gi,     w:2.0,  name:'compliance with rule' },
+  { re:/\bpresumption\b/gi,               w:2.2,  name:'presumption' },
+  { re:/\bsafe harbour\b/gi,              w:2.5,  name:'safe harbour' },
+];
+
+/* Score one class: sum of (match_count × weight) for each pattern */
+function scoreClass(text, patterns) {
+  let total = 0;
+  const found = [];
+  patterns.forEach(p => {
+    const matches = text.match(p.re);
+    if (matches) {
+      total += matches.length * p.w;
+      found.push(p.name);
+    }
+  });
+  return { total, found };
+}
+
+/* Suffix-based prior: if ref ends in R/G/E, boost that class */
+function refSuffixPrior(text) {
+  const refs = text.match(/COBS\s+[\d]+\.[\d.]+([RGED])\b/g) || [];
+  const counts = { R:0, G:0, E:0 };
+  refs.forEach(r => {
+    const last = r.trim().slice(-1);
+    if (counts.hasOwnProperty(last)) counts[last]++;
+  });
+  return counts;
+}
+
+/* Softmax: convert raw logits to probabilities (temperature=1.2 for calibration) */
+function softmax(logits, temperature=1.2) {
+  const scaled = logits.map(l => l / temperature);
+  const maxL = Math.max(...scaled);
+  const exps = scaled.map(l => Math.exp(l - maxL));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sum);
+}
+
+/* Main classifier: returns { type, confidence, probs, signals } */
+function classifyProvision(text) {
+  const rScore = scoreClass(text, RULE_PATTERNS);
+  const gScore = scoreClass(text, GUIDANCE_PATTERNS);
+  const eScore = scoreClass(text, EVIDENTIAL_PATTERNS);
+
+  // Add suffix priors
+  const sp = refSuffixPrior(text);
+  const logits = [
+    rScore.total + sp.R * 1.5,   // Rule
+    gScore.total + sp.G * 1.2,   // Guidance
+    eScore.total + sp.E * 1.8    // Evidential
+  ];
+
+  // Prior bias: Rules are most common in COBS (63%)
+  logits[0] += 0.8;
+  logits[1] += 0.4;
+  logits[2] += 0.1;
+
+  // Word-count heuristic: very short texts tend to be Rules
+  const wc = text.split(/\s+/).length;
+  if (wc < 30) logits[0] += 0.5;
+
+  const probs = softmax(logits);
+  const labels = ['R', 'G', 'E'];
+  const maxIdx = probs.indexOf(Math.max(...probs));
+  const type = labels[maxIdx];
+
+  // Collect all signals that fired for the winning class
+  const allSignals = [
+    ...rScore.found.map(s => ({ signal: s, cls: 'R' })),
+    ...gScore.found.map(s => ({ signal: s, cls: 'G' })),
+    ...eScore.found.map(s => ({ signal: s, cls: 'E' }))
+  ];
+  const winningSignals = allSignals.filter(s => s.cls === type).map(s => s.signal);
+  const allDetected = allSignals.map(s => s.signal);
+
+  return {
+    type,
+    confidence: probs[maxIdx],
+    probs: { R: probs[0], G: probs[1], E: probs[2] },
+    signals: winningSignals.length > 0 ? winningSignals : ['class prior distribution'],
+    allSignals: allDetected
+  };
+}
+
+/* Enhanced citation extraction with relation classification */
+function extractCitations(text) {
+  const refs = [...new Set(text.match(/COBS\s+[\d]+\.([\dA-Z.]+)/g) || [])];
+  // Detect AMENDS vs CITES relations
+  const relations = [];
+  const amendPat = /amends?|substitut|replac|revok|delet|insert|omit/i;
+  refs.forEach(ref => {
+    // Check surrounding context for amend signals
+    const idx = text.indexOf(ref);
+    const ctx = text.substring(Math.max(0, idx - 80), Math.min(text.length, idx + ref.length + 80));
+    const relType = amendPat.test(ctx) ? 'AMENDS' : 'CITES';
+    relations.push({ target: ref, relation: relType });
+  });
+  return { refs, relations };
+}
+
+async function runClassify(){
+  const text = document.getElementById('classifyInput').value.trim();
+  if(!text) return;
+  const model = document.getElementById('clsModelSelect') ? document.getElementById('clsModelSelect').value : 'legal-bert';
+  const btn = document.getElementById('classifyBtn');
+  btn.classList.add('loading');
+  btn.querySelectorAll('.spinner-border').forEach(s=>s.classList.remove('d-none'));
+  btn.disabled = true;
+  const typeLabels = { R:'Rule', G:'Guidance', E:'Evidential Provision' };
+
+  if(API_ONLINE){
+    try {
+      const t0 = performance.now();
+      const resp = await fetch(API_BASE + '/classify', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({text, model})
+      });
+      if(!resp.ok) throw new Error('API error ' + resp.status);
+      const data = await resp.json();
+      btn.classList.remove('loading');
+      btn.querySelectorAll('.spinner-border').forEach(s=>s.classList.add('d-none'));
+      btn.disabled = false;
+
+      // Classification result
+      document.getElementById('resultLabel').textContent = typeLabels[data.label] || data.label;
+      const sfx = document.getElementById('resultSuffix');
+      sfx.textContent = data.label;
+      const _sfxCols={R:'primary',G:'success',E:'warning',D:'secondary'};
+      sfx.className = 'badge bg-'+(_sfxCols[data.label]||'secondary')+' font-monospace fw-bold';
+
+      // Confidence bar
+      const confPct = (data.confidence * 100).toFixed(1);
+      document.getElementById('confVal').textContent = confPct + '%';
+      const confFill = document.getElementById('confFill');
+      confFill.style.width = '0%';
+      confFill.style.background = data.confidence>=0.8 ? '#20c997' : data.confidence>=0.6 ? '#0d6efd' : '#ffc107';
+      setTimeout(() => confFill.style.width = confPct + '%', 50);
+
+      // Probability distribution
+      const probBox = document.getElementById('cls-probs');
+      if(probBox && data.probabilities){
+        probBox.style.display = 'block';
+        document.getElementById('prob-r-val').textContent = ((data.probabilities.R||0)*100).toFixed(1)+'%';
+        document.getElementById('prob-g-val').textContent = ((data.probabilities.G||0)*100).toFixed(1)+'%';
+        document.getElementById('prob-e-val').textContent = ((data.probabilities.E||0)*100).toFixed(1)+'%';
+        document.getElementById('prob-r-bar').style.width = ((data.probabilities.R||0)*100)+'%';
+        document.getElementById('prob-g-bar').style.width = ((data.probabilities.G||0)*100)+'%';
+        document.getElementById('prob-e-bar').style.width = ((data.probabilities.E||0)*100)+'%';
+      }
+
+      // Evidence text
+      const evEl = document.getElementById('cls-ev-txt');
+      evEl.innerHTML = hlEvidence(text.slice(0,400)+(text.length>400?'…':''), (data.citations||[]).join(' '));
+      document.getElementById('cls-ev').style.display = 'block';
+
+      // Citations
+      if(data.citations && data.citations.length > 0){
+        document.getElementById('citTags').innerHTML = data.citations.map(r =>
+          `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 font-monospace me-1" style="font-size:10px">${r}</span>`
+        ).join('');
+        const citRelEl = document.getElementById('citRels');
+        if(citRelEl) citRelEl.innerHTML = data.citations.map(r =>
+          `<div><span style="color:#0d6efd">This provision</span><span style="color:#6c757d"> → CITES → </span><span style="color:#20c997">${r}</span></div>`
+        ).join('');
+        document.getElementById('citBox').style.display = 'block';
+      } else {
+        document.getElementById('citBox').style.display = 'none';
+      }
+
+      // Model metadata
+      const clsMeta = document.getElementById('cls-meta');
+      if(clsMeta){
+        document.getElementById('cls-model-used').textContent = data.model_used || model;
+        document.getElementById('cls-infer-ms').textContent = (data.inference_ms || (performance.now()-t0)).toFixed(0) + ' ms';
+        clsMeta.style.display = 'flex';
+      }
+
+      // Signals
+      document.getElementById('cls-sig-chips').innerHTML = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 font-monospace me-1" style="font-size:10px">${data.model_used||'Legal-BERT'}</span><span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 font-monospace" style="font-size:10px">Neural Classification</span>`;
+      document.getElementById('cls-sig').style.display = 'block';
+      document.getElementById('resultBox').classList.remove('d-none');
+      return;
+    } catch(err){
+      console.warn('API classify failed, falling back to local:', err);
+    }
+  }
+
+  // ── Local fallback (linguistic pattern approximation) ──
+  setTimeout(() => {
+    btn.classList.remove('loading');
+    btn.querySelectorAll('.spinner-border').forEach(s=>s.classList.add('d-none'));
+    btn.disabled = false;
+    const result = classifyProvision(text);
+    const citResult = extractCitations(text);
+
+    document.getElementById('resultLabel').textContent = typeLabels[result.type];
+    const sfx = document.getElementById('resultSuffix');
+    sfx.textContent = result.type;
+    const _sfxCols2={R:'primary',G:'success',E:'warning',D:'secondary'};
+    sfx.className = 'badge bg-'+(_sfxCols2[result.type]||'secondary')+' font-monospace fw-bold';
+
+    const confPct = (result.confidence * 100).toFixed(1);
+    document.getElementById('confVal').textContent = confPct + '%';
+    const confFill = document.getElementById('confFill');
+    confFill.style.width = '0%';
+    confFill.style.background = result.confidence>=0.8 ? '#20c997' : result.confidence>=0.6 ? '#0d6efd' : '#ffc107';
+    setTimeout(() => confFill.style.width = confPct + '%', 50);
+
+    const probBox = document.getElementById('cls-probs');
+    if(probBox){
+      probBox.style.display = 'block';
+      document.getElementById('prob-r-val').textContent = (result.probs.R*100).toFixed(1)+'%';
+      document.getElementById('prob-g-val').textContent = (result.probs.G*100).toFixed(1)+'%';
+      document.getElementById('prob-e-val').textContent = (result.probs.E*100).toFixed(1)+'%';
+      document.getElementById('prob-r-bar').style.width = (result.probs.R*100)+'%';
+      document.getElementById('prob-g-bar').style.width = (result.probs.G*100)+'%';
+      document.getElementById('prob-e-bar').style.width = (result.probs.E*100)+'%';
+    }
+
+    const evEl = document.getElementById('cls-ev-txt');
+    evEl.innerHTML = hlEvidence(text.slice(0,400)+(text.length>400?'…':''), result.allSignals.join(' '));
+    document.getElementById('cls-ev').style.display = 'block';
+
+    if(citResult.refs.length > 0){
+      document.getElementById('citTags').innerHTML = citResult.relations.map(r =>
+        `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 font-monospace me-1" style="font-size:10px">${r.target} <small class='opacity-50'>${r.relation}</small></span>`
+      ).join('');
+      document.getElementById('citRels').innerHTML = citResult.relations.map(r =>
+        `<div><span style="color:#0d6efd">This provision</span><span style="color:#6c757d"> → ${r.relation} → </span><span style="color:${r.relation==='AMENDS'?'#ffc107':'#20c997'}">${r.target}</span></div>`
+      ).join('');
+      document.getElementById('citBox').style.display = 'block';
+    } else {
+      document.getElementById('citBox').style.display = 'none';
+    }
+
+    const clsMeta = document.getElementById('cls-meta');
+    if(clsMeta){
+      document.getElementById('cls-model-used').textContent = 'Local Fallback';
+      document.getElementById('cls-infer-ms').textContent = '—';
+      clsMeta.style.display = 'flex';
+    }
+
+    document.getElementById('cls-sig-chips').innerHTML = result.signals.map(s => `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 font-monospace me-1" style="font-size:10px">${s}</span>`).join('');
+    document.getElementById('cls-sig').style.display = 'block';
+    document.getElementById('resultBox').classList.remove('d-none');
+  }, 1100);
+}
+
+/* ─── NETWORK ─── */
+const NODES=[{id:"COBS 6.1.4R",x:55,y:55,col:'#2563ff'},{id:"COBS 2.1.1R",x:195,y:28,col:'#2563ff'},{id:"COBS 9A.2.1R",x:320,y:65,col:'#2563ff'},{id:"COBS 6.1.6G",x:125,y:140,col:'#00c9a7'},{id:"COBS 9A.3.2E",x:248,y:158,col:'#f59e0b'},{id:"COBS 11.2A.1G",x:345,y:168,col:'#00c9a7'}];
+const EDGES=[{s:0,t:1,r:'CITES'},{s:1,t:2,r:'CITES'},{s:0,t:3,r:'CITES'},{s:3,t:4,r:'CITES'},{s:2,t:4,r:'CITES'},{s:2,t:5,r:'CITES'},{s:1,t:4,r:'AMENDS'}];
+function buildNetwork(){
+  const svg=document.getElementById('networkSvg'); if(!svg) return;
+  let h=`<defs><marker id="aC" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 z" fill="#2563ff" opacity=".7"/></marker><marker id="aA" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 z" fill="#f59e0b" opacity=".7"/></marker></defs>`;
+  EDGES.forEach(e=>{
+    const s=NODES[e.s],t=NODES[e.t],dx=t.x-s.x,dy=t.y-s.y,l=Math.sqrt(dx*dx+dy*dy),ux=dx/l,uy=dy/l,r=18,col=e.r==='AMENDS'?'#f59e0b':'#2563ff',m=e.r==='AMENDS'?'aA':'aC',da=e.r==='AMENDS'?'5,3':'none';
+    h+=`<line x1="${s.x+ux*r}" y1="${s.y+uy*r}" x2="${t.x-ux*r}" y2="${t.y-uy*r}" stroke="${col}" stroke-width="1.5" stroke-opacity=".45" marker-end="url(#${m})" stroke-dasharray="${da}"/>`;
+  });
+  NODES.forEach(n=>{
+    const pts=n.id.split(' ');
+    h+=`<g transform="translate(${n.x},${n.y})"><circle r="18" fill="${n.col}" fill-opacity=".1" stroke="${n.col}" stroke-width="1.5"/><text text-anchor="middle" dy="-5" fill="${n.col}" font-family="IBM Plex Mono" font-size="6" font-weight="600">${pts[1]}</text><text text-anchor="middle" dy="5" fill="${n.col}" font-family="IBM Plex Mono" font-size="6">${pts[2]||''}</text></g>`;
+  });
+  h+=`<g transform="translate(8,192)"><line x1="0" y1="4" x2="18" y2="4" stroke="#2563ff" stroke-width="1.5" marker-end="url(#aC)"/><text x="23" y="8" fill="#64748b" font-family="IBM Plex Mono" font-size="8">CITES</text><line x1="65" y1="4" x2="83" y2="4" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#aA)"/><text x="88" y="8" fill="#64748b" font-family="IBM Plex Mono" font-size="8">AMENDS</text></g>`;
+  svg.innerHTML=h;
+}
+/* ─── EXTRACTIONS ─── */
+const EXTS=[{"s": "COBS 1.1.1A", "t": "COBS 1.1.1AE", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1A", "t": "COBS 4.6", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1A", "t": "COBS 4.7", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1A", "t": "COBS 4.10", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AA", "t": "COBS 6.2B", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AA", "t": "COBS 1.1.1AR", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 1.1.1AR", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 6.1ZA", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 6.2B", "r": "CITES", "c": 0.92}, {"s": "COBS 1.1.1AE", "t": "COBS 11.2A.34R", "r": "CITES", "c": 0.92}];
+function buildExtractions(){
+  const el=document.getElementById('extList'); if(!el) return;
+  el.innerHTML=EXTS.map((e,i)=>{
+    const relCol=e.r==='AMENDS'?'warning':'primary';
+    return `<div class="d-flex align-items-center gap-2 border border-secondary-subtle rounded px-3 py-2 mb-2 small">
+      <span class="font-monospace text-primary fw-semibold" style="font-size:11px">${e.s}</span>
+      <span class="text-secondary font-monospace flex-fill text-center" style="font-size:9px">${e.r}</span>
+      <span class="font-monospace text-success fw-semibold" style="font-size:11px">${e.t}</span>
+      <span class="badge bg-${relCol} bg-opacity-15 text-${relCol} border border-${relCol} border-opacity-25 font-monospace" style="font-size:9px">${e.r}</span>
+      <span class="text-secondary font-monospace" style="font-size:10px">${Math.round(e.c*100)}%</span>
+    </div>`;
+  }).join('');
+}
+/* ─── TABS ─── */
+function sw(name, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='overview'){ buildNetwork(); buildExtractions(); }
+}
+buildNetwork(); buildExtractions();
+
+/* ─── LOAD DASHBOARD DATA FROM JSON ─── */
+function renderCorpusChart(dist) {
+  const C = 326.73; // 2*pi*52
+  const COLORS = ['#0d6efd', '#20c997', '#ffc107', '#6f42c1'];
+  const TYPES  = ['R', 'G', 'E', 'D'];
+  const total  = dist.total;
+  const startOffset = C / 4;
+  let svgInner = `<circle cx="70" cy="70" r="52" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="17"/>`;
+  let legendHtml = '';
+  let cumLen = 0;
+  TYPES.forEach((t, i) => {
+    const count = dist[t] ? dist[t].count : 0;
+    const label = dist[t] ? dist[t].label : t;
+    const pct   = total > 0 ? count / total : 0;
+    const len   = pct * C;
+    if (count > 0) {
+      const offset = startOffset - cumLen;
+      svgInner += `<circle cx="70" cy="70" r="52" fill="none" stroke="${COLORS[i]}" stroke-width="17" stroke-dasharray="${len.toFixed(1)} ${C}" stroke-dashoffset="${offset.toFixed(1)}" style="animation:dash 1.2s ease both ${0.3+i*0.1}s"/>`;
+    }
+    cumLen += len;
+    const pctStr = total > 0 ? (pct*100).toFixed(1)+'%' : '0%';
+    legendHtml += `<div class="d-flex align-items-center gap-2"><span class="flex-shrink-0" style="width:8px;height:8px;border-radius:2px;display:inline-block;background:${COLORS[i]}"></span><span class="flex-fill text-secondary" style="font-size:11px">${label}</span><span class="text-secondary font-monospace" style="font-size:10px">${count}</span><span class="text-secondary font-monospace text-end" style="font-size:10px;min-width:34px">${pctStr}</span></div>`;
+  });
+  svgInner += `<text x="70" y="66" text-anchor="middle" fill="#f8f9fa" font-family="IBM Plex Mono" font-size="19" font-weight="600">${total}</text>`;
+  svgInner += `<text x="70" y="80" text-anchor="middle" fill="#6c757d" font-family="IBM Plex Mono" font-size="9">PROVISIONS</text>`;
+  const chart = document.getElementById('corpus-chart');
+  if (chart) chart.innerHTML = `<svg width="140" height="140" viewBox="0 0 140 140" style="overflow:visible">${svgInner}</svg><div class="d-flex flex-column gap-2 w-100">${legendHtml}</div>`;
+  const ptag = document.getElementById('corpus-ptag');
+  if (ptag) ptag.textContent = total + ' DOCS';
+}
+
+function renderModelComparison(models) {
+  const tbody = document.getElementById('model-comparison-tbody');
+  if (!tbody || !models) return;
+  tbody.innerHTML = models.map(m => {
+    const best = m.best_baseline;
+    const name = m.model + (best ? ' \u2605' : '');
+    const tagLabel = (best ? 'BEST \u00b7 ' : '') + m.tag;
+    return `<tr${best ? ' class="table-active fw-semibold"' : ''}><td><div class="fw-semibold">${name}</div><div class="text-secondary font-monospace" style="font-size:9px;text-transform:uppercase">${tagLabel}</div></td><td>${m.precision.toFixed(1)}%</td><td>${m.recall.toFixed(1)}%</td><td><span class="badge ${best ? 'bg-success' : 'bg-primary'} bg-opacity-25 text-${best ? 'success' : 'primary'} font-monospace">${m.f1.toFixed(1)}%</span></td><td>${m.accuracy.toFixed(1)}%</td></tr>`;
+  }).join('');
+}
+
+function renderAblation(ablation) {
+  const tbody = document.getElementById('ablation-tbody');
+  if (!tbody || !ablation) return;
+  tbody.innerHTML = ablation.map(a => {
+    const name = a.config + (a.best ? ' \u2605' : '');
+    return `<tr${a.best ? ' class="table-active fw-semibold"' : ''}><td><div class="fw-semibold">${name}</div></td><td>${a.precision.toFixed(1)}%</td><td>${a.recall.toFixed(1)}%</td><td><span class="badge ${a.best ? 'bg-success' : 'bg-primary'} bg-opacity-25 text-${a.best ? 'success' : 'primary'} font-monospace">${a.f1.toFixed(1)}%</span></td></tr>`;
+  }).join('');
+}
+
+async function loadDashboardData() {
+  try {
+    const res  = await fetch('./dashboard_data.json');
+    const data = await res.json();
+    const m    = data.metrics;
+
+    // Metric cards
+    const acc = m.classification_accuracy;
+    const svmAcc  = data.model_comparison.find(x => x.best_baseline).accuracy;
+    const mlPrec  = data.ablation.find(x => x.config === 'ML Only').precision;
+    const rbRecall= data.ablation.find(x => x.config === 'Rule-Based Only').recall;
+
+    document.getElementById('mc-accuracy').innerHTML           = acc.toFixed(1) + '<span class="text-secondary" style="font-size:16px">%</span>';
+    document.getElementById('mc-accuracy-delta').textContent   = '+' + (acc - svmAcc).toFixed(1) + 'pp vs baseline';
+    document.getElementById('mc-citation-precision').innerHTML = m.citation_precision.toFixed(1) + '<span class="text-secondary" style="font-size:16px">%</span>';
+    document.getElementById('mc-citation-precision-delta').textContent = '+' + (m.citation_precision - mlPrec).toFixed(1) + 'pp vs ML-only';
+    document.getElementById('mc-citation-recall').innerHTML    = m.citation_recall.toFixed(1) + '<span class="text-secondary" style="font-size:16px">%</span>';
+    document.getElementById('mc-citation-recall-delta').textContent    = '+' + (m.citation_recall - rbRecall).toFixed(1) + 'pp vs rule-only';
+    document.getElementById('mc-corpus').textContent           = m.corpus_size;
+
+    // Per-class F1 bars
+    const pcMap = { r: data.per_class.R, g: data.per_class.G, e: data.per_class.E };
+    const pcNames  = { r: 'Rule', g: 'Guidance', e: 'Evidential' };
+    ['r','g','e'].forEach(id => {
+      const cls = id.toUpperCase();
+      const pc  = pcMap[id];
+      document.getElementById(`pcf1-${id}-lbl`).textContent  = `${pcNames[id]} (${cls}) · n=${pc.support}`;
+      document.getElementById(`pcf1-${id}-val`).textContent  = pc.f1.toFixed(1) + '%';
+      document.getElementById(`pcf1-${id}-bar`).style.width  = (pc.f1 > 0 ? pc.f1 : 0.5) + '%';
+    });
+
+    // Extraction pipeline bars
+    const ep = data.extraction_pipeline;
+    document.getElementById('ep-rb-prec-val').textContent  = ep.rule_based_precision.toFixed(1) + '%';
+    document.getElementById('ep-rb-prec-bar').style.width  = ep.rule_based_precision + '%';
+    document.getElementById('ep-ml-rec-val').textContent   = ep.ml_only_recall.toFixed(1) + '%';
+    document.getElementById('ep-ml-rec-bar').style.width   = ep.ml_only_recall + '%';
+    document.getElementById('ep-hyb-f1-val').textContent   = ep.hybrid_f1.toFixed(1) + '%';
+    document.getElementById('ep-hyb-f1-bar').style.width   = ep.hybrid_f1 + '%';
+
+    // Corpus donut chart
+    renderCorpusChart(data.corpus_dist);
+
+    // Active type count for corpus card delta
+    const activeTypes = ['R','G','E','D'].filter(t => data.corpus_dist[t] && data.corpus_dist[t].count > 0);
+    document.getElementById('mc-corpus-delta').textContent = `${activeTypes.length} types (${activeTypes.join(', ')})`;
+
+    // Model comparison & ablation tables
+    renderModelComparison(data.model_comparison);
+    renderAblation(data.ablation);
+
+  } catch(e) {
+    console.warn('loadDashboardData failed:', e);
+    // Fallback: render corpus chart with static values already in DOM
+    renderCorpusChart({R:{count:505,label:'Rule'},G:{count:285,label:'Guidance'},E:{count:12,label:'Evidential Provision'},D:{count:0,label:'Direction'},total:802});
+    renderModelComparison([
+      {model:'SVM + TF-IDF', tag:'BASELINE',    best_baseline:true,  precision:90.1, recall:71.5, f1:77.7, accuracy:85.1},
+      {model:'Random Forest', tag:'BASELINE',   best_baseline:false, precision:55.0, recall:36.4, f1:31.9, accuracy:66.1},
+      {model:'Legal-BERT',    tag:'TRANSFORMER',best_baseline:false, precision:62.8, recall:64.2, f1:63.5, accuracy:95.0}
+    ]);
+    renderAblation([
+      {config:'Rule-Based Only',       precision:96.2, recall:58.4, f1:72.7, best:false},
+      {config:'ML Only',               precision:78.9, recall:81.2, f1:80.0, best:false},
+      {config:'Hybrid Ensemble',       precision:88.3, recall:79.1, f1:83.5, best:true},
+      {config:'No Confidence Override',precision:85.1, recall:79.3, f1:82.1, best:false},
+      {config:'Random Init',           precision:61.4, recall:59.2, f1:60.3, best:false}
+    ]);
+  }
+}
+loadDashboardData();
+</script>
+</body>
+</html>
