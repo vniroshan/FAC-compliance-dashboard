@@ -1,1 +1,8 @@
-models/transformers/ 
+# Large model & data artifacts — stored on HF Hub / external storage
+models/transformers/
+*.safetensors
+*.npy
+*.joblib
+__pycache__/
+*.pyc
+.env

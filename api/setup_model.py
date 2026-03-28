@@ -1,11 +1,11 @@
 """
-Run ONCE to complete the local Legal-BERT model directory.
+Run ONCE to set up the local Legal-BERT model directory.
 
-The Colab training saved only model.safetensors.
-This script fetches the matching tokenizer and config from
-nlpaueb/legal-bert-base-uncased (HuggingFace) and writes them
-alongside the fine-tuned weights so the model can be loaded
-fully offline afterwards.
+The fine-tuned weights live on Hugging Face Hub:
+  https://huggingface.co/vniroshan/cobs-legal-bert-fca
+
+This script downloads them locally so the API can run fully offline.
+In production, app.py loads directly from the Hub when no local weights exist.
 """
 
 import json, os, sys

@@ -27,7 +27,8 @@ from sentence_transformers import SentenceTransformer
 
 #Paths
 BASE          = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-BERT_DIR      = os.path.join(BASE, 'models', 'transformers', 'legal-bert')
+BERT_DIR      = os.path.join(BASE, 'models', 'transformers', 'legal-bert')  # local fallback
+HF_MODEL_REPO = os.environ.get('HF_MODEL_REPO', 'vniroshan/cobs-legal-bert-fca')
 SVM_PATH      = os.path.join(BASE, 'models', 'baselines', 'svm_tfidf.joblib')
 EMB_PATH      = os.path.join(BASE, 'data', 'processed', 'cobs_embeddings.npy')
 BERT_EMB_PATH = os.path.join(BASE, 'data', 'processed', 'cobs_bert_embeddings.npy')
@@ -68,14 +69,15 @@ state: dict = {
 async def load_models():
     log.info('Loading models …')
 
-    # 1. Legal-BERT
+    # 1. Legal-BERT — try HF Hub first, fall back to local directory
+    bert_source = HF_MODEL_REPO if not os.path.isfile(os.path.join(BERT_DIR, 'model.safetensors')) else BERT_DIR
     try:
-        state['bert_tokenizer'] = AutoTokenizer.from_pretrained(BERT_DIR)
-        state['bert_model']     = AutoModelForSequenceClassification.from_pretrained(BERT_DIR)
+        state['bert_tokenizer'] = AutoTokenizer.from_pretrained(bert_source)
+        state['bert_model']     = AutoModelForSequenceClassification.from_pretrained(bert_source)
         state['bert_model'].eval()
-        log.info('Legal-BERT loaded  (%s)', BERT_DIR)
+        log.info('Legal-BERT loaded  (%s)', bert_source)
     except Exception as e:
-        msg = f'Legal-BERT load failed: {e}'
+        msg = f'Legal-BERT load failed from {bert_source}: {e}'
         state['errors'].append(msg)
         log.error(' %s', msg)
 
