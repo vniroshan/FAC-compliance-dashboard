@@ -2,3 +2,4 @@ Model,Precision,Recall,F1 (macro),Accuracy
 SVM + TF-IDF,90.1%,71.5%,77.7%,85.1%
 Random Forest,55.0%,36.4%,31.9%,66.1%
 Legal-BERT,62.8%,64.2%,63.5%,95.0%
+RoBERTa-base,60.9%,63.3%,61.9%,92.6%

@@ -3,11 +3,11 @@ from sklearn.metrics import classification_report, accuracy_score
 import joblib
 
 # Load test data
-test_df = pd.read_csv('data/processed/test.csv')
+test_df = pd.read_csv('../data/processed/test.csv')
 X_te = test_df['text']
 y_te = test_df['label'].values
 
-with open('data/processed/label_map.json') as f:
+with open('../data/processed/label_map.json') as f:
     lm = json.load(f)
 ID2LABEL = {int(k): v for k, v in lm['id2label'].items()}
 
@@ -17,14 +17,14 @@ label_names = [ID2LABEL[i] for i in all_labels]
 
 #Baseline predictions
 print('Loading baseline models...')
-svm_model = joblib.load('models/baselines/svm_tfidf.joblib')
-rf_model  = joblib.load('models/baselines/random_forest.joblib')
+svm_model = joblib.load('../models/baselines/svm_tfidf.joblib')
+rf_model  = joblib.load('../models/baselines/random_forest.joblib')
 
 svm_preds = svm_model.predict(X_te)
 rf_preds  = rf_model.predict(X_te)
 
 # Legal-BERT results (from Colab)
-bert_report = json.load(open('data/processed/legal_bert_report.json'))
+bert_report = json.load(open('../data/processed/legal_bert_report.json'))
 
 # Build comparison table
 results = []
@@ -64,8 +64,8 @@ results.append({
 results_df = pd.DataFrame(results)
 print('\nTable 2: Model Comparison')
 print(results_df.to_string(index=False))
-results_df.to_csv('data/processed/table2_model_comparison.csv', index=False)
-print('\nSaved -> data/processed/table2_model_comparison.csv')
+results_df.to_csv('../data/processed/table2_model_comparison.csv', index=False)
+print('\nSaved -> ../data/processed/table2_model_comparison.csv')
 
 #Per-class detail
 print('\nSVM Classification Report')

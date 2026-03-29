@@ -2,7 +2,7 @@
 import pandas as pd, re, json
 from collections import defaultdict
 
-df = pd.read_csv('data/raw/cobs_dataset.csv')
+df = pd.read_csv('../data/raw/cobs_dataset.csv')
 
 #Pattern library
 CITE_PATTERN = re.compile(
@@ -40,5 +40,5 @@ rel_df = pd.DataFrame(all_relations).drop_duplicates(subset=['source','target','
 print(f'Extracted {len(rel_df)} unique relations')
 print(rel_df['relation'].value_counts())
 
-rel_df.to_csv('data/citations/rule_based_citations.csv', index=False)
-print('Saved → data/citations/rule_based_citations.csv')
+rel_df.to_csv('../data/citations/rule_based_citations.csv', index=False)
+print('Saved → ../data/citations/rule_based_citations.csv')

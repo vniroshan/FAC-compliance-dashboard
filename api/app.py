@@ -28,7 +28,9 @@ from sentence_transformers import SentenceTransformer
 #Paths
 BASE          = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 BERT_DIR      = os.path.join(BASE, 'models', 'transformers', 'legal-bert')  # local fallback
-HF_MODEL_REPO = os.environ.get('HF_MODEL_REPO', 'vniroshan/cobs-legal-bert-fca')
+HF_MODEL_REPO    = os.environ.get('HF_MODEL_REPO',    'vniroshan/cobs-legal-bert-fca')
+HF_ROBERTA_REPO  = os.environ.get('HF_ROBERTA_REPO', 'vniroshan/cobs-roberta-fca')
+ROBERTA_DIR      = os.path.join(BASE, 'models', 'transformers', 'roberta')
 SVM_PATH      = os.path.join(BASE, 'models', 'baselines', 'svm_tfidf.joblib')
 EMB_PATH      = os.path.join(BASE, 'data', 'processed', 'cobs_embeddings.npy')
 BERT_EMB_PATH = os.path.join(BASE, 'data', 'processed', 'cobs_bert_embeddings.npy')
@@ -52,9 +54,11 @@ app.add_middleware(
 
 #Global model state (loaded once at startup)
 state: dict = {
-    'bert_model'     : None,
-    'bert_tokenizer' : None,
-    'svm_pipeline'   : None,
+    'bert_model'      : None,
+    'bert_tokenizer'  : None,
+    'roberta_model'   : None,
+    'roberta_tokenizer': None,
+    'svm_pipeline'    : None,
     'st_model'       : None,
     'embeddings'     : None,   # (802, 384) float32  — SentenceTransformer
     'bert_embeddings': None,   # (802, 768) float32  — Legal-BERT [CLS]
@@ -81,7 +85,19 @@ async def load_models():
         state['errors'].append(msg)
         log.error(' %s', msg)
 
-    # 2. SVM baseline
+    # 2. RoBERTa — try local first, fall back to HF Hub
+    roberta_source = ROBERTA_DIR if os.path.isfile(os.path.join(ROBERTA_DIR, 'model.safetensors')) else HF_ROBERTA_REPO
+    try:
+        state['roberta_tokenizer'] = AutoTokenizer.from_pretrained(roberta_source)
+        state['roberta_model']     = AutoModelForSequenceClassification.from_pretrained(roberta_source)
+        state['roberta_model'].eval()
+        log.info('RoBERTa loaded  (%s)', roberta_source)
+    except Exception as e:
+        msg = f'RoBERTa load failed: {e}'
+        state['errors'].append(msg)
+        log.warning(' %s', msg)
+
+    # 3. SVM baseline
     try:
         state['svm_pipeline'] = joblib.load(SVM_PATH)
         log.info(' SVM + TF-IDF loaded')
@@ -89,7 +105,7 @@ async def load_models():
         state['errors'].append(f'SVM load failed: {e}')
         log.warning('SVM load failed: %s', e)
 
-    # 3. SentenceTransformer for query encoding
+    # 4. SentenceTransformer for query encoding
     try:
         state['st_model']  = SentenceTransformer('all-MiniLM-L6-v2')
         state['embeddings']= np.load(EMB_PATH).astype(np.float32)
@@ -99,7 +115,7 @@ async def load_models():
         state['errors'].append(f'SentenceTransformer load failed: {e}')
         log.error('%s', e)
 
-    # 4. Legal-BERT precomputed corpus embeddings (for similarity search)
+    # 5. Legal-BERT precomputed corpus embeddings (for similarity search)
     try:
         state['bert_embeddings'] = np.load(BERT_EMB_PATH).astype(np.float32)
         log.info(' Legal-BERT corpus embeddings loaded  shape=%s', state['bert_embeddings'].shape)
@@ -113,7 +129,7 @@ async def load_models():
 # Schemas
 class ClassifyRequest(BaseModel):
     text   : str
-    model  : Optional[str] = 'legal-bert'   # 'legal-bert' | 'svm'
+    model  : Optional[str] = 'legal-bert'   # 'legal-bert' | 'roberta' | 'svm'
 
 class ClassifyResponse(BaseModel):
     label       : str           # 'R' | 'G' | 'E'
@@ -172,6 +188,28 @@ def bert_classify(text: str) -> ClassifyResponse:
         inference_ms = round(ms, 2),
     )
 
+def roberta_classify(text: str) -> ClassifyResponse:
+    tok   = state['roberta_tokenizer']
+    model = state['roberta_model']
+    inputs = tok(text, return_tensors='pt', truncation=True,
+                  max_length=512, padding=True)
+    t0 = time.monotonic()
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    ms  = (time.monotonic() - t0) * 1000
+    probs     = torch.softmax(logits, dim=-1)[0].tolist()
+    pred_idx  = int(torch.argmax(logits, dim=-1).item())
+    id2label  = state['id2label']
+    return ClassifyResponse(
+        label        = id2label[pred_idx],
+        label_name   = state['label_names'][pred_idx],
+        confidence   = round(probs[pred_idx], 4),
+        probabilities= {id2label[i]: round(p, 4) for i, p in enumerate(probs)},
+        citations    = extract_citations(text),
+        model_used   = 'RoBERTa-base (fine-tuned)',
+        inference_ms = round(ms, 2),
+    )
+
 def svm_classify(text: str) -> ClassifyResponse:
     pipeline  = state['svm_pipeline']
     t0   = time.monotonic()
@@ -202,12 +240,13 @@ def svm_classify(text: str) -> ClassifyResponse:
 @app.get('/health')
 def health():
     return {
-        'status'      : 'ready' if state['ready'] else 'degraded',
-        'bert_loaded' : state['bert_model']    is not None,
-        'svm_loaded'  : state['svm_pipeline']  is not None,
-        'st_loaded'   : state['st_model']      is not None,
-        'corpus_size' : len(state['metadata']) if state['metadata'] else 0,
-        'errors'      : state['errors'],
+        'status'          : 'ready' if state['ready'] else 'degraded',
+        'bert_loaded'     : state['bert_model']      is not None,
+        'roberta_loaded'  : state['roberta_model']   is not None,
+        'svm_loaded'      : state['svm_pipeline']    is not None,
+        'st_loaded'       : state['st_model']        is not None,
+        'corpus_size'     : len(state['metadata']) if state['metadata'] else 0,
+        'errors'          : state['errors'],
     }
 
 
@@ -224,6 +263,10 @@ def classify(req: ClassifyRequest):
         if state['svm_pipeline'] is None:
             raise HTTPException(503, 'SVM model not loaded')
         return svm_classify(req.text)
+    elif req.model == 'roberta':
+        if state['roberta_model'] is None:
+            raise HTTPException(503, 'RoBERTa model not loaded')
+        return roberta_classify(req.text)
     else:
         if state['bert_model'] is None:
             raise HTTPException(503, 'Legal-BERT model not loaded')

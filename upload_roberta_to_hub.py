@@ -1,10 +1,14 @@
+"""
+Uploads the fine-tuned COBS RoBERTa model to Hugging Face Hub.
+Run once: python upload_roberta_to_hub.py
+"""
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from huggingface_hub import HfApi, whoami
 
-MODEL_DIR = os.path.join('models', 'transformers', 'legal-bert')
-REPO_NAME = 'cobs-legal-bert-fca'
+MODEL_DIR = os.path.join('models', 'transformers', 'roberta')
+REPO_NAME = 'cobs-roberta-fca'
 
 api = HfApi()
 
@@ -26,9 +30,9 @@ api.upload_folder(
     folder_path=MODEL_DIR,
     repo_id=repo_id,
     repo_type='model',
-    commit_message='Upload fine-tuned COBS Legal-BERT (FCA COBS classification)'
+    commit_message='Upload fine-tuned COBS RoBERTa-base (FCA COBS classification)'
 )
 
 print(f"\nDone! Model is at: https://huggingface.co/{repo_id}")
 print(f"\nAdd this to .env or update api/app.py:")
-print(f"  HF_MODEL_REPO = '{repo_id}'")
+print(f"  HF_ROBERTA_REPO = '{repo_id}'")

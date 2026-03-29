@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt, seaborn as sns
 import wandb
 
 #Config
-MODEL_NAME = 'nlpaueb/legal-bert-base-uncased'  # Legal-BERT
-# MODEL_NAME = 'roberta-base'                   # swap for RoBERTa
+#MODEL_NAME = 'nlpaueb/legal-bert-base-uncased'  # Legal-BERT
+MODEL_NAME = 'roberta-base'                   # swap for RoBERTa
 
-OUTPUT_DIR  = 'models/transformers/legal-bert'
+OUTPUT_DIR  = '../models/transformers/legal-bert'
 MAX_LEN     = 512
 BATCH_SIZE  = 8    
 EPOCHS      = 4
@@ -21,11 +21,11 @@ WARMUP_RATIO= 0.1
 SEED        = 42
 
 #Load data
-train_df = pd.read_csv('data/processed/train.csv')
-val_df   = pd.read_csv('data/processed/val.csv')
-test_df  = pd.read_csv('data/processed/test.csv')
+train_df = pd.read_csv('../data/processed/train.csv')
+val_df   = pd.read_csv('../data/processed/val.csv')
+test_df  = pd.read_csv('../data/processed/test.csv')
 
-with open('data/processed/label_map.json') as f:
+with open('../data/processed/label_map.json') as f:
     lm = json.load(f)
 ID2LABEL_FULL = {int(k): v for k,v in lm['id2label'].items()}
 
@@ -121,7 +121,7 @@ sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
 ax.set_title('Legal-BERT Confusion Matrix (Test Set)')
 ax.set_ylabel('True'); ax.set_xlabel('Predicted')
 plt.tight_layout()
-plt.savefig('data/processed/cm_legal_bert.png', dpi=150)
+plt.savefig('../data/processed/cm_legal_bert.png', dpi=150)
 
 #Save model
 trainer.save_model(OUTPUT_DIR)

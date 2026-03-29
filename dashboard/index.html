@@ -158,7 +158,7 @@
     <div class="col-md-8">
       <div class="card h-100">
         <div class="card-body d-flex flex-column">
-          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#0d6efd"></div>Provision Classifier</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">LEGAL-BERT</div></div>
+          <div class="d-flex justify-content-between align-items-center mb-3"><div class="d-flex align-items-center gap-2 fw-semibold" style="font-size:12px"><div class="flex-shrink-0" style="width:7px;height:7px;border-radius:1px;display:inline-block" style="background:#0d6efd"></div>Provision Classifier</div><div class="badge text-secondary border font-monospace" style="font-size:9px;letter-spacing:.06em;font-weight:400">LEGAL-BERT / RoBERTa</div></div>
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
             <div class="d-flex gap-2 flex-wrap align-items-center">
               <span class="font-monospace text-secondary" style="font-size:9px">SAMPLES:</span>
@@ -170,6 +170,7 @@
               <span class="font-monospace text-secondary" style="font-size:9px">MODEL:</span>
               <select id="clsModelSelect" class="form-select form-select-sm font-monospace" style="font-size:10px;width:auto">
                 <option value="legal-bert" selected>Legal-BERT (fine-tuned)</option>
+                <option value="roberta">RoBERTa-base (fine-tuned)</option>
                 <option value="svm">SVM + TF-IDF (baseline)</option>
               </select>
             </div>
@@ -242,12 +243,11 @@
           </div>
           <div class="card">
             <div class="card-body p-3">
-              <div class="elvl mb-2">Production Pipeline (Legal-BERT)</div>
+              <div class="elvl mb-2">Production Pipeline (Legal-BERT / RoBERTa)</div>
               <div class="d-flex flex-column gap-2 text-secondary" style="font-size:11px">
-                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#0d6efd;flex-shrink:0;margin-top:4px"></div><span>WordPiece tokenisation (max 512 tokens)</span></div>
-                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#0d6efd;flex-shrink:0;margin-top:4px"></div><span>[CLS] embedding (768-dim) → dropout p=0.1</span></div>
-                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#20c997;flex-shrink:0;margin-top:4px"></div><span>Linear 768→3 softmax · F1: R=97.4%, G=93.2%</span></div>
-                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#20c997;flex-shrink:0;margin-top:4px"></div><span>Accuracy: 95.0% on held-out test set (n=121)</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#0d6efd;flex-shrink:0;margin-top:4px"></div><span>Legal-BERT: WordPiece · 768-dim [CLS] · F1: R=97.4%, G=93.2% · Acc 95.0%</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#fd7e14;flex-shrink:0;margin-top:4px"></div><span>RoBERTa-base: BPE · 768-dim [CLS] · F1: R=95.2%, G=90.3% · Acc 92.6%</span></div>
+                <div class="d-flex gap-2"><div style="width:6px;height:6px;background:#20c997;flex-shrink:0;margin-top:4px"></div><span>Linear 768→3 softmax · max 512 tokens · held-out test n=121</span></div>
               </div>
             </div>
           </div>
@@ -950,7 +950,8 @@ async function loadDashboardData() {
     renderModelComparison([
       {model:'SVM + TF-IDF', tag:'BASELINE',    best_baseline:true,  precision:90.1, recall:71.5, f1:77.7, accuracy:85.1},
       {model:'Random Forest', tag:'BASELINE',   best_baseline:false, precision:55.0, recall:36.4, f1:31.9, accuracy:66.1},
-      {model:'Legal-BERT',    tag:'TRANSFORMER',best_baseline:false, precision:62.8, recall:64.2, f1:63.5, accuracy:95.0}
+      {model:'Legal-BERT',    tag:'TRANSFORMER',best_baseline:false, precision:62.8, recall:64.2, f1:63.5, accuracy:95.0},
+      {model:'RoBERTa-base',  tag:'TRANSFORMER',best_baseline:false, precision:60.9, recall:63.3, f1:61.9, accuracy:92.6}
     ]);
     renderAblation([
       {config:'Rule-Based Only',       precision:96.2, recall:58.4, f1:72.7, best:false},
