@@ -1,0 +1,23 @@
+[
+  {
+    "config": "Rule-Based Only",
+    "precision": 96.2,
+    "recall": 58.4,
+    "f1": 72.7,
+    "best": false
+  },
+  {
+    "config": "ML Only (BERT NER + Relation)",
+    "precision": 78.9,
+    "recall": 81.2,
+    "f1": 80.0,
+    "best": false
+  },
+  {
+    "config": "Hybrid Ensemble (Rule + ML)",
+    "precision": 88.3,
+    "recall": 79.1,
+    "f1": 83.5,
+    "best": true
+  }
+]

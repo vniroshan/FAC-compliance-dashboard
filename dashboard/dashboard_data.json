@@ -24027,32 +24027,18 @@
       "best": false
     },
     {
-      "config": "ML Only",
+      "config": "ML Only (BERT NER + Relation)",
       "precision": 78.9,
       "recall": 81.2,
       "f1": 80.0,
       "best": false
     },
     {
-      "config": "Hybrid Ensemble",
+      "config": "Hybrid Ensemble (Rule + ML)",
       "precision": 88.3,
       "recall": 79.1,
       "f1": 83.5,
       "best": true
-    },
-    {
-      "config": "No Confidence Override",
-      "precision": 85.1,
-      "recall": 79.3,
-      "f1": 82.1,
-      "best": false
-    },
-    {
-      "config": "Random Init",
-      "precision": 61.4,
-      "recall": 59.2,
-      "f1": 60.3,
-      "best": false
     }
   ],
   "extraction_pipeline": {
